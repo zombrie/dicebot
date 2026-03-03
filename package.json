@@ -17,6 +17,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "node clean.js",
-    "bot": "rootsdk start devhost"
+    "bot": "rootsdk start devhost",
+    "rebuild": "npm run build && npm run bot"
   }
 }

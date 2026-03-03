@@ -13,6 +13,7 @@ import { computeCheck, norm } from "./skills";
 import { rollDice, formatDice } from "./dice";
 import { parseTopLevel } from "./commands";
 import { renderSheet } from "./render";
+import { renderHelp } from "./help";
 
 async function getNickname(userId: UserGuid): Promise<string> {
   const member = await rootServer.community.communityMembers.get({ userId });
@@ -37,6 +38,10 @@ async function handleMessage(evt: ChannelMessageCreatedEvent) {
   let nick = "user";
   try { nick = await getNickname(evt.userId); } catch {}
   const who = mentionUser(evt.userId, nick);
+
+  console.log('parsed.kind is ', parsed.kind)
+  console.log('mentioned by ', who)
+  console.log('sheet is ', sheet)
 
   // ROLL
   if (parsed.kind === "roll") {
@@ -123,6 +128,12 @@ async function handleMessage(evt: ChannelMessageCreatedEvent) {
     const content = renderSheet(sheet);
     await reply(evt.channelId, content);
     return;
+  }
+
+  // help text!
+  if (parsed.kind === "help") {
+    await reply(evt.channelId, renderHelp(parsed.topic));
+    return; 
   }
 }
 

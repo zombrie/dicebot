@@ -21,15 +21,21 @@ function keyFor(userId: UserGuid) {
 export async function loadSheet(userId: UserGuid): Promise<Sheet> {
   const key = keyFor(userId);
 
-  const stored = await rootServer.dataStore.appData.get<Sheet>(key);
+  const raw = await rootServer.dataStore.appData.get(key) as string;
 
-  if (!stored) {
+  if (!raw) {
     const sheet = defaultSheet();
-    await rootServer.dataStore.appData.set({key: key, value: JSON.stringify(sheet)});
+    await saveSheet(userId, sheet);
     return sheet;
   }
-
-  return stored;
+  try {
+    return JSON.parse(raw) as Sheet;
+  } catch (error) {
+    console.error(error);
+    const sheet = defaultSheet();
+    await saveSheet(userId, sheet);
+    return sheet;
+  }
 }
 
 export async function saveSheet(userId: UserGuid, sheet: Sheet): Promise<void> {
