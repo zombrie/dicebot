@@ -6,6 +6,7 @@ import { isDM, getDMs, addDM, removeDM, hasAnyDM } from "../dm";
 import { addCalEntry, delCalEntries, listCalEntries, formatCalDate } from "../calendar";
 import { fetchDDBSheet } from "../ddbimport";
 import { expToLevel } from "../skills";
+import { rootServer } from "@rootsdk/server-bot";
 import type { UserGuid } from "@rootsdk/server-bot";
 
 export async function handleDMClaim(ctx: HandlerContext, _parsed: Extract<ParsedCommand, { kind: "dm_claim" }>): Promise<void> {
@@ -19,25 +20,40 @@ export async function handleDMClaim(ctx: HandlerContext, _parsed: Extract<Parsed
 }
 
 export async function handleDMAdd(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "dm_add" }>): Promise<void> {
-  const { evt, reply, getNickname, mentionUser } = ctx;
+  const { evt, reply, mentionUser } = ctx;
   if (!(await isDM(evt.userId))) {
     await reply("⚠️ Only a DM can add other DMs.");
     return;
   }
-  await addDM(parsed.targetUserId);
-  const n = await getNickname(parsed.targetUserId as UserGuid).catch(() => "user");
-  await reply(`${mentionUser(parsed.targetUserId, n)} is now a DM.`);
+  // Resolve the mention ID to the canonical UserGuid so it matches evt.userId on future checks.
+  // Root mention URLs use a different ID format (UUID) than evt.userId (UserGuid).
+  let member;
+  try {
+    member = await rootServer.community.communityMembers.get({ userId: parsed.targetUserId as UserGuid });
+  } catch {
+    await reply("⚠️ Could not resolve that user — try mentioning them again.");
+    return;
+  }
+  await addDM(member.userId);
+  await reply(`${mentionUser(member.userId, member.nickname || "user")} is now a DM.`);
 }
 
 export async function handleDMRemove(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "dm_remove" }>): Promise<void> {
-  const { evt, reply, getNickname, mentionUser } = ctx;
+  const { evt, reply, mentionUser } = ctx;
   if (!(await isDM(evt.userId))) {
     await reply("⚠️ Only a DM can remove DMs.");
     return;
   }
-  await removeDM(parsed.targetUserId);
-  const n = await getNickname(parsed.targetUserId as UserGuid).catch(() => "user");
-  await reply(`${mentionUser(parsed.targetUserId, n)} is no longer a DM.`);
+  // Resolve canonical UserGuid before removing (same format mismatch as handleDMAdd).
+  let member;
+  try {
+    member = await rootServer.community.communityMembers.get({ userId: parsed.targetUserId as UserGuid });
+  } catch {
+    await reply("⚠️ Could not resolve that user — try mentioning them again.");
+    return;
+  }
+  await removeDM(member.userId);
+  await reply(`${mentionUser(member.userId, member.nickname || "user")} is no longer a DM.`);
 }
 
 export async function handleDMList(ctx: HandlerContext, _parsed: Extract<ParsedCommand, { kind: "dm_list" }>): Promise<void> {

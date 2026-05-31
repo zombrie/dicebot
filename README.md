@@ -28,9 +28,10 @@ Requires Node ≥ 22 and a valid `DEV_TOKEN` for the Root SDK.
 | `!r d20adv` | Advantage (2d20, keep highest) |
 | `!r d20dis` | Disadvantage (2d20, keep lowest) |
 | `!r d20adv+5` | Advantage with modifier |
+| `!r d6adv`  | Advantage on a non-d20 dice |
 | `!r d20; 2d6+3` | Multiple rolls (`;` or newline separator) |
 
-Limits: 1–100 dice, 2–1000 sides. Advantage/disadvantage only works on d20.
+Limits: 1–100 dice, 2–1000 sides.
 
 ---
 
