@@ -23,7 +23,7 @@ function keyFor(userId: UserGuid) {
 
 export async function loadSheet(userId: UserGuid): Promise<Sheet> {
   const key = keyFor(userId);
-  const raw = storageGet(key);
+  const raw = await storageGet(key);
 
   if (!raw) {
     const sheet = defaultSheet();
@@ -40,7 +40,7 @@ export async function loadSheet(userId: UserGuid): Promise<Sheet> {
     }
     return sheet;
   } catch (error) {
-    console.error(error);
+    console.error(`[loadSheet] JSON parse failed for user ${userId}:`, error);
     const sheet = defaultSheet();
     await saveSheet(userId, sheet);
     return sheet;
@@ -53,5 +53,5 @@ export async function saveSheet(userId: UserGuid, sheet: Sheet): Promise<void> {
   } catch (e) {
     console.error("[saveSheet] registerMember failed:", e);
   }
-  storageSet(keyFor(userId), JSON.stringify(sheet));
+  await storageSet(keyFor(userId), JSON.stringify(sheet));
 }

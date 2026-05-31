@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
+import { mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
 const DATA_DIR = join(process.cwd(), "data");
@@ -8,12 +9,14 @@ function keyToPath(key: string): string {
   return join(DATA_DIR, key.replace(/[^a-zA-Z0-9._-]/g, "_") + ".json");
 }
 
-export function storageGet(key: string): string | undefined {
-  const file = keyToPath(key);
-  if (!existsSync(file)) return undefined;
-  return readFileSync(file, "utf-8");
+export async function storageGet(key: string): Promise<string | undefined> {
+  try {
+    return await readFile(keyToPath(key), "utf-8");
+  } catch {
+    return undefined;
+  }
 }
 
-export function storageSet(key: string, value: string): void {
-  writeFileSync(keyToPath(key), value, "utf-8");
+export async function storageSet(key: string, value: string): Promise<void> {
+  await writeFile(keyToPath(key), value, "utf-8");
 }

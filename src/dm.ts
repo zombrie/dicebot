@@ -2,36 +2,36 @@ import { storageGet, storageSet } from "./storage";
 
 const DM_KEY = "dms";
 
-function load(): Set<string> {
-  const raw = storageGet(DM_KEY);
+async function load(): Promise<Set<string>> {
+  const raw = await storageGet(DM_KEY);
   if (!raw) return new Set();
   try { return new Set(JSON.parse(raw)); } catch { return new Set(); }
 }
 
-function save(dms: Set<string>): void {
-  storageSet(DM_KEY, JSON.stringify([...dms]));
+async function save(dms: Set<string>): Promise<void> {
+  await storageSet(DM_KEY, JSON.stringify([...dms]));
 }
 
 export async function isDM(userId: string): Promise<boolean> {
-  return load().has(userId);
+  return (await load()).has(userId);
 }
 
 export async function getDMs(): Promise<string[]> {
-  return [...load()];
+  return [...(await load())];
 }
 
 export async function hasAnyDM(): Promise<boolean> {
-  return load().size > 0;
+  return (await load()).size > 0;
 }
 
 export async function addDM(userId: string): Promise<void> {
-  const dms = load();
+  const dms = await load();
   dms.add(userId);
-  save(dms);
+  await save(dms);
 }
 
 export async function removeDM(userId: string): Promise<void> {
-  const dms = load();
+  const dms = await load();
   dms.delete(userId);
-  save(dms);
+  await save(dms);
 }
