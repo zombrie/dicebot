@@ -1,5 +1,7 @@
-import { rootServer, type UserGuid } from "@rootsdk/server-bot";
+import type { UserGuid } from "@rootsdk/server-bot";
 import type { Sheet } from "./skills";
+import { registerMember } from "./party";
+import { storageGet, storageSet } from "./storage";
 
 export function defaultSheet(): Sheet {
   return {
@@ -11,6 +13,7 @@ export function defaultSheet(): Sheet {
       ingame: { label: "In Game", abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
     },
     skillProf: {},
+    inventory: {},
   };
 }
 
@@ -20,8 +23,7 @@ function keyFor(userId: UserGuid) {
 
 export async function loadSheet(userId: UserGuid): Promise<Sheet> {
   const key = keyFor(userId);
-
-  const raw = await rootServer.dataStore.appData.get(key) as string;
+  const raw = storageGet(key);
 
   if (!raw) {
     const sheet = defaultSheet();
@@ -29,7 +31,14 @@ export async function loadSheet(userId: UserGuid): Promise<Sheet> {
     return sheet;
   }
   try {
-    return JSON.parse(raw) as Sheet;
+    const sheet = JSON.parse(raw) as Sheet;
+    if (Array.isArray(sheet.inventory)) {
+      // migrate from old string[] format
+      sheet.inventory = Object.fromEntries((sheet.inventory as unknown as string[]).map(s => [s, 1]));
+    } else if (!sheet.inventory) {
+      sheet.inventory = {};
+    }
+    return sheet;
   } catch (error) {
     console.error(error);
     const sheet = defaultSheet();
@@ -39,5 +48,10 @@ export async function loadSheet(userId: UserGuid): Promise<Sheet> {
 }
 
 export async function saveSheet(userId: UserGuid, sheet: Sheet): Promise<void> {
-  await rootServer.dataStore.appData.set({key:keyFor(userId), value: JSON.stringify(sheet)});
+  try {
+    await registerMember(userId);
+  } catch (e) {
+    console.error("[saveSheet] registerMember failed:", e);
+  }
+  storageSet(keyFor(userId), JSON.stringify(sheet));
 }

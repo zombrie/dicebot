@@ -33,8 +33,7 @@ export type DiceResult = {
     if (sides < 2 || sides > 1000) throw new Error("Die sides must be 2–1000.");
     if (keep && (keep.n < 1 || keep.n > count)) throw new Error("Keep must be between 1 and the number of dice.");
   
-    // Adv/dis shorthand for d20: enforce 2d20 keep 1
-    if (mode && sides === 20) {
+    if (mode) {
       count = 2;
       keep = { which: mode === "adv" ? "h" : "l", n: 1 };
     }

@@ -12,12 +12,15 @@
   },
   "devDependencies": {
     "@rootsdk/dev-tools": "*",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^3.2.0"
   },
   "scripts": {
     "build": "tsc",
     "clean": "node clean.js",
     "bot": "rootsdk start devhost",
-    "rebuild": "npm run build && npm run bot"
+    "rebuild": "npm run build && npm run bot",
+    "test": "vitest run",
+    "test:watch": "vitest"
   }
 }

@@ -1,5 +1,6 @@
 .env
 rootsdk.sqlite3
 dist/
+data/
 node_modules/
 tsconfig.tsbuildinfo
