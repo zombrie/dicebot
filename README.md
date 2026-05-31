@@ -1,6 +1,6 @@
 # Dice Bot
 
-A Root community bot for D&D-style play. Handles dice rolling, skill/saving throw checks, full character sheets (ability scores, HP, spell slots, proficiencies, exp/level), per-character inventories backed by a shared item library, an in-game calendar, and an exp leaderboard. A DM permission system controls who can modify other players' sheets.
+A Root community bot for D&D-style play. Handles dice rolling, skill/saving throw checks, full character sheets (ability scores, HP, spell slots, proficiencies, exp/level), per-character inventories backed by a shared item library, an in-game calendar, and an exp leaderboard. Supports full NPC sheets for DM-controlled characters. A DM permission system controls who can modify other players' sheets.
 
 ---
 
@@ -362,6 +362,80 @@ Once a DM exists, `!dm claim` is locked. Ask an existing DM to add you with `!dm
 
 ---
 
+### NPC Sheets — `!npc` *(DM only)*
+
+Full-featured sheets for named NPCs — same capabilities as player sheets. All commands require DM status.
+
+#### Roster management
+
+```
+!npc create Brother Aldric     # create a new NPC with a default sheet
+!npc list                      # list all NPCs
+!npc delete Brother Aldric     # permanently remove an NPC and their data
+```
+
+NPC names are multi-word. For all sheet commands below, the name comes first.
+
+#### View sheet and inventory
+
+```
+!npc Brother Aldric sheet
+!npc Brother Aldric inv
+```
+
+#### Stats (mirrors !char)
+
+```
+!npc Brother Aldric set hp 40
+!npc Brother Aldric set maxhp 60
+!npc Brother Aldric set hd 10
+!npc Brother Aldric set temphp 5
+!npc Brother Aldric adjust hp -12        # takes damage; temp HP absorbed first
+!npc Brother Aldric set ability str ingame 18
+!npc Brother Aldric set abilities ingame str 18 dex 14 con 16 int 10 wis 12 cha 8
+!npc Brother Aldric set class Paladin
+!npc Brother Aldric set caster half
+!npc Brother Aldric set pb 3
+!npc Brother Aldric prof skill Athletics
+!npc Brother Aldric prof skill Perception exp
+!npc Brother Aldric prof save str
+!npc Brother Aldric use ingame
+```
+
+#### Rests, experience, spell slots
+
+```
+!npc Brother Aldric rest long
+!npc Brother Aldric rest short 2
+!npc Brother Aldric exp 500
+!npc Brother Aldric set maxslot 1 4
+!npc Brother Aldric set slot 1 2
+!npc Brother Aldric cast fireball 3
+!npc Brother Aldric cast blind 2
+```
+
+#### Inventory and known spells
+
+```
+!npc Brother Aldric inv add Longsword
+!npc Brother Aldric inv add Arrows 20; Rations 5
+!npc Brother Aldric inv remove Arrows 5
+!npc Brother Aldric inv clear
+!npc Brother Aldric spells add fireball
+!npc Brother Aldric spells remove fireball
+!npc Brother Aldric spells clear
+```
+
+#### Reset
+
+```
+!npc Brother Aldric reset          # wipes sheet back to default (name preserved)
+```
+
+NPCs are excluded from `!exprank` — that leaderboard shows players only.
+
+---
+
 ### Help — `!help`
 
 ```
@@ -375,6 +449,7 @@ Once a DM exists, `!dm claim` is locked. Ask an existing DM to add you with `!dm
 !help exp
 !help cal
 !help rest
+!help npc
 ```
 
 ---
@@ -392,6 +467,7 @@ Once a DM exists, `!dm claim` is locked. Ask an existing DM to add you with `!dm
 | `!cal add`, `!cal del` | DM only |
 | `!dm add`, `!dm remove` | DM only |
 | `!dm claim` | Anyone (only if no DMs exist) |
+| All `!npc` commands | DM only |
 
 The `@user` suffix on any `!char`, `!inv`, `!exp`, `!rest`, or `!import` command targets that user. Non-DMs targeting someone else get an error. `!cast` and `!attack` always apply to the sender's own sheet.
 
@@ -458,7 +534,7 @@ npm run build       # compile TypeScript → dist/
 npm run bot         # start dev host (requires build first)
 npm run rebuild     # build + start in one step
 npm run clean       # wipe dist/
-npm test            # single test run (342 tests)
+npm test            # single test run (362 tests)
 npm run test:watch  # watch mode
 ```
 
@@ -472,6 +548,11 @@ SDK-dependent modules (`main`, `sheet`, `dm`, `itemlib`, `calendar`, `party`) an
 
 1. Add a variant to `ParsedCommand` in `commands.ts`
 2. Add a regex branch in `parseTopLevel` — more specific patterns first. Watch for prefix collisions (e.g. `!r` vs `!rest`)
-3. Add a handler block in `main.ts`
-4. Add help text in `help.ts`
-5. Add parse tests in `src/__tests__/commands.test.ts`
+3. Add a handler function in the relevant file under `src/handlers/`
+4. Add a `case` in the switch in `main.ts` — the `parsed satisfies never` default will cause a compile error if you forget
+5. Add help text in `help.ts`
+6. Add parse tests in `src/__tests__/commands.test.ts`
+
+### Adding a new NPC command
+
+Same as above, but the handler goes in `src/handlers/npc.ts`. Use `withNPC` for any command that needs to read and write a sheet; use `requireDM` + manual lookup for read-only commands.

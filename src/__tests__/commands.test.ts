@@ -858,4 +858,144 @@ describe("parseTopLevel", () => {
     it("returns null for plain text", () => expect(parseTopLevel("hello there")).toBeNull());
     it("returns null for unknown command", () => expect(parseTopLevel("!unknown")).toBeNull());
   });
+
+  describe("!npc — NPC commands", () => {
+    describe("structural (keyword first)", () => {
+      it("parses !npc list", () => {
+        expect(parseTopLevel("!npc list")?.kind).toBe("npc_list");
+      });
+
+      it("parses !npc create with single-word name", () => {
+        const r = parseTopLevel("!npc create Thornwick");
+        expect(r?.kind).toBe("npc_create");
+        if (r?.kind === "npc_create") expect(r.name).toBe("Thornwick");
+      });
+
+      it("parses !npc create with multi-word name", () => {
+        const r = parseTopLevel("!npc create Brother Aldric");
+        expect(r?.kind).toBe("npc_create");
+        if (r?.kind === "npc_create") expect(r.name).toBe("Brother Aldric");
+      });
+
+      it("parses !npc delete", () => {
+        const r = parseTopLevel("!npc delete Brother Aldric");
+        expect(r?.kind).toBe("npc_delete");
+        if (r?.kind === "npc_delete") expect(r.name).toBe("Brother Aldric");
+      });
+    });
+
+    describe("sheet operations (name first)", () => {
+      it("parses !npc <name> sheet", () => {
+        const r = parseTopLevel("!npc Brother Aldric sheet");
+        expect(r?.kind).toBe("npc_sheet");
+        if (r?.kind === "npc_sheet") expect(r.name).toBe("Brother Aldric");
+      });
+
+      it("parses !npc <name> reset", () => {
+        const r = parseTopLevel("!npc Goblin Chief reset");
+        expect(r?.kind).toBe("npc_reset");
+        if (r?.kind === "npc_reset") expect(r.name).toBe("Goblin Chief");
+      });
+
+      it("parses !npc <name> set hp", () => {
+        const r = parseTopLevel("!npc Brother Aldric set hp 40");
+        expect(r?.kind).toBe("npc_set_hp");
+        if (r?.kind === "npc_set_hp") { expect(r.name).toBe("Brother Aldric"); expect(r.value).toBe(40); }
+      });
+
+      it("parses !npc <name> set maxhp", () => {
+        const r = parseTopLevel("!npc Brother Aldric set maxhp 60");
+        expect(r?.kind).toBe("npc_set_maxhp");
+        if (r?.kind === "npc_set_maxhp") expect(r.value).toBe(60);
+      });
+
+      it("parses !npc <name> adjust hp with negative delta", () => {
+        const r = parseTopLevel("!npc Brother Aldric adjust hp -12");
+        expect(r?.kind).toBe("npc_adjust_hp");
+        if (r?.kind === "npc_adjust_hp") { expect(r.name).toBe("Brother Aldric"); expect(r.delta).toBe(-12); }
+      });
+
+      it("parses !npc <name> set ability", () => {
+        const r = parseTopLevel("!npc Goblin Chief set ability str ingame 18");
+        expect(r?.kind).toBe("npc_set_ability");
+        if (r?.kind === "npc_set_ability") {
+          expect(r.name).toBe("Goblin Chief");
+          expect(r.ability).toBe("str");
+          expect(r.form).toBe("ingame");
+          expect(r.score).toBe(18);
+        }
+      });
+
+      it("parses !npc <name> set abilities", () => {
+        const r = parseTopLevel("!npc Brother Aldric set abilities ingame str 18 dex 14");
+        expect(r?.kind).toBe("npc_set_abilities");
+        if (r?.kind === "npc_set_abilities") {
+          expect(r.name).toBe("Brother Aldric");
+          expect(r.pairs).toEqual([{ ability: "str", score: 18 }, { ability: "dex", score: 14 }]);
+        }
+      });
+
+      it("parses !npc <name> set class", () => {
+        const r = parseTopLevel("!npc Brother Aldric set class Paladin");
+        expect(r?.kind).toBe("npc_set_class");
+        if (r?.kind === "npc_set_class") { expect(r.name).toBe("Brother Aldric"); expect(r.value).toBe("Paladin"); }
+      });
+
+      it("parses !npc <name> rest long", () => {
+        const r = parseTopLevel("!npc Brother Aldric rest long");
+        expect(r?.kind).toBe("npc_rest_long");
+        if (r?.kind === "npc_rest_long") expect(r.name).toBe("Brother Aldric");
+      });
+
+      it("parses !npc <name> rest short with dice count", () => {
+        const r = parseTopLevel("!npc Brother Aldric rest short 2");
+        expect(r?.kind).toBe("npc_rest_short");
+        if (r?.kind === "npc_rest_short") { expect(r.name).toBe("Brother Aldric"); expect(r.dice).toBe(2); }
+      });
+
+      it("parses !npc <name> exp", () => {
+        const r = parseTopLevel("!npc Brother Aldric exp 500");
+        expect(r?.kind).toBe("npc_exp");
+        if (r?.kind === "npc_exp") { expect(r.name).toBe("Brother Aldric"); expect(r.amount).toBe(500); }
+      });
+
+      it("parses !npc <name> inv", () => {
+        const r = parseTopLevel("!npc Brother Aldric inv");
+        expect(r?.kind).toBe("npc_inv_show");
+        if (r?.kind === "npc_inv_show") expect(r.name).toBe("Brother Aldric");
+      });
+
+      it("parses !npc <name> inv add", () => {
+        const r = parseTopLevel("!npc Brother Aldric inv add Longsword");
+        expect(r?.kind).toBe("npc_inv_add");
+        if (r?.kind === "npc_inv_add") {
+          expect(r.name).toBe("Brother Aldric");
+          expect(r.items).toEqual([{ item: "Longsword", qty: 1 }]);
+        }
+      });
+
+      it("parses !npc <name> cast blind before general cast", () => {
+        const r = parseTopLevel("!npc Brother Aldric cast blind 3");
+        expect(r?.kind).toBe("npc_cast");
+        if (r?.kind === "npc_cast") { expect(r.name).toBe("Brother Aldric"); expect(r.level).toBe(3); }
+      });
+
+      it("parses !npc <name> cast spell", () => {
+        const r = parseTopLevel("!npc Brother Aldric cast fireball 3");
+        expect(r?.kind).toBe("npc_spell_cast");
+        if (r?.kind === "npc_spell_cast") {
+          expect(r.name).toBe("Brother Aldric");
+          expect(r.spell).toBe("fireball");
+          expect(r.level).toBe(3);
+        }
+      });
+
+      it("handles name containing a potential keyword (edge case)", () => {
+        // "Sunset" contains "set" — non-greedy regex should still capture full name
+        const r = parseTopLevel("!npc Sunset set hp 30");
+        expect(r?.kind).toBe("npc_set_hp");
+        if (r?.kind === "npc_set_hp") { expect(r.name).toBe("Sunset"); expect(r.value).toBe(30); }
+      });
+    });
+  });
 });

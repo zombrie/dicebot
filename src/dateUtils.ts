@@ -1,3 +1,4 @@
+// Date formatting utilities for the in-game calendar. Uses UTC throughout to avoid timezone shifts.
 function ordinal(n: number): string {
   if (n % 100 >= 10 && n % 100 <= 20) return `${n}th`;
   const suffix: Record<number, string> = { 1: "st", 2: "nd", 3: "rd" };

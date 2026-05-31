@@ -1,5 +1,5 @@
 // File-based JSON key/value store. Used instead of the Root SDK's appData, which doesn't persist for dev bots.
-import { readFile, writeFile } from "fs/promises";
+import { readFile, writeFile, unlink } from "fs/promises";
 import { mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
@@ -20,4 +20,8 @@ export async function storageGet(key: string): Promise<string | undefined> {
 
 export async function storageSet(key: string, value: string): Promise<void> {
   await writeFile(keyToPath(key), value, "utf-8");
+}
+
+export async function storageDelete(key: string): Promise<void> {
+  try { await unlink(keyToPath(key)); } catch { /* file may not exist */ }
 }

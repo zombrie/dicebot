@@ -13,11 +13,13 @@ End-to-end verification steps for the live dev host. Run these after any signifi
 !help char
 !help rest
 !help lib
+!help npc
 ```
 
 - [ ] All topics render without errors
 - [ ] `!help` shows the D&D Beyond import blurb
 - [ ] `!help rest` covers `!rest long`, `!rest short`, `!cast <spell>`, and `!cast blind`
+- [ ] `!help npc` lists create/list/delete, sheet ops, stat commands, rests, and inventory
 
 ---
 
@@ -624,7 +626,162 @@ From the player account:
 
 ---
 
-## 13. Known limitations and failure modes
+## 13. NPC sheets
+
+**Prerequisites:** DM account. Use a multi-word NPC name to exercise the name-parsing logic.
+
+### Roster management
+
+```
+!npc create Brother Aldric
+!npc list
+```
+
+- [ ] Confirmed creation message
+- [ ] `!npc list` shows "Brother Aldric"
+
+Duplicate create:
+
+```
+!npc create Brother Aldric
+```
+
+- [ ] "already exists" error, not a second entry in the list
+
+Non-DM attempt:
+
+```
+# from player account
+!npc create Test NPC
+```
+
+- [ ] "Only a DM can manage NPC sheets" error
+
+### Stat setup and sheet view
+
+```
+!npc Brother Aldric set class Paladin
+!npc Brother Aldric set caster half
+!npc Brother Aldric set hd 10
+!npc Brother Aldric set maxhp 55
+!npc Brother Aldric set hp 55
+!npc Brother Aldric set pb 3
+!npc Brother Aldric set ability str ingame 18
+!npc Brother Aldric set abilities ingame str 18 dex 10 con 16 int 8 wis 12 cha 14
+!npc Brother Aldric prof skill Athletics
+!npc Brother Aldric prof save str
+!npc Brother Aldric prof save cha
+!npc Brother Aldric sheet
+```
+
+- [ ] Sheet displays name, class, PB, HP, ability scores
+- [ ] Athletics shows as proficient; STR and CHA shows in save proficiencies
+- [ ] Half-caster label appears on class line
+
+### HP and damage
+
+```
+!npc Brother Aldric set temphp 8
+!npc Brother Aldric adjust hp -12
+```
+
+- [ ] Message says 8 absorbed by temp HP, regular HP reduced by 4
+
+```
+!npc Brother Aldric adjust hp 10
+```
+
+- [ ] HP increases (capped at max)
+
+### Rests
+
+```
+!npc Brother Aldric set maxslot 1 4
+!npc Brother Aldric set maxslot 2 2
+!npc Brother Aldric cast cure wounds
+!npc Brother Aldric rest long
+!npc Brother Aldric sheet
+```
+
+- [ ] Slot decremented by cast
+- [ ] Long rest restores HP to max, slots to max, clears temp HP
+- [ ] Sheet confirms
+
+```
+!npc Brother Aldric adjust hp -20
+!npc Brother Aldric rest short 2
+```
+
+- [ ] Reports two hit die rolls + CON modifier, HP increased
+
+### Inventory
+
+```
+!npc Brother Aldric inv add Longsword
+!npc Brother Aldric inv add Rations 5; Torch
+!npc Brother Aldric inv
+```
+
+- [ ] Inventory shows all three items with correct quantities
+
+```
+!npc Brother Aldric inv remove Rations 2
+!npc Brother Aldric inv
+```
+
+- [ ] Rations count is 3
+
+### Experience and level-up
+
+```
+!npc Brother Aldric exp 60
+```
+
+- [ ] Level-up message fires (level 2), PB and HP changes noted
+
+```
+!exprank
+```
+
+- [ ] Brother Aldric does **not** appear in the leaderboard
+
+### Spells
+
+```
+!npc Brother Aldric spells add cure wounds
+!npc Brother Aldric spells add bless
+!npc Brother Aldric spells
+!npc Brother Aldric cast cure wounds
+!npc Brother Aldric spells remove bless
+!npc Brother Aldric spells
+```
+
+- [ ] Known spells list reflects adds and remove
+- [ ] Cast succeeds and deducts slot
+- [ ] After remove, bless is gone from the list
+
+Casting a spell not in known list (when list is non-empty):
+
+```
+!npc Brother Aldric cast fireball
+```
+
+- [ ] Blocked with helpful error referencing `!npc Brother Aldric spells add fireball`
+
+### Delete
+
+```
+!npc delete Brother Aldric
+!npc list
+!npc Brother Aldric sheet
+```
+
+- [ ] List is empty (or no longer shows Brother Aldric)
+- [ ] Sheet command returns "not found" error
+
+---
+
+## 14. Known limitations and failure modes
 
 These are the areas most likely to surface issues in a live environment. They are not bugs to fix now — just things to be aware of.
 

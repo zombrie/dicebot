@@ -58,7 +58,40 @@ export type ParsedCommand =
   | { kind: "spells_add"; spell: string }
   | { kind: "spells_remove"; spell: string }
   | { kind: "spells_clear" }
-  | { kind: "ddb_import"; characterId: string; targetUserId?: string };
+  | { kind: "ddb_import"; characterId: string; targetUserId?: string }
+  | { kind: "npc_create"; name: string }
+  | { kind: "npc_list" }
+  | { kind: "npc_delete"; name: string }
+  | { kind: "npc_sheet"; name: string }
+  | { kind: "npc_reset"; name: string }
+  | { kind: "npc_use"; name: string; form: Form }
+  | { kind: "npc_set_pb"; name: string; pb: number }
+  | { kind: "npc_set_ability"; name: string; ability: Ability; form: Form; score: number }
+  | { kind: "npc_set_abilities"; name: string; form: Form; pairs: AbilityPair[] }
+  | { kind: "npc_prof_skill"; name: string; skill: string; level: ProfLevel }
+  | { kind: "npc_prof_save"; name: string; ability: Ability; proficient: boolean }
+  | { kind: "npc_set_class"; name: string; value: string }
+  | { kind: "npc_set_caster"; name: string; casterType: CasterType }
+  | { kind: "npc_set_slot"; name: string; level: number; value: number }
+  | { kind: "npc_set_maxslot"; name: string; level: number; value: number }
+  | { kind: "npc_set_hp"; name: string; value: number }
+  | { kind: "npc_set_maxhp"; name: string; value: number }
+  | { kind: "npc_set_temphp"; name: string; value: number }
+  | { kind: "npc_adjust_hp"; name: string; delta: number }
+  | { kind: "npc_set_hd"; name: string; value: number }
+  | { kind: "npc_rest_long"; name: string }
+  | { kind: "npc_rest_short"; name: string; dice: number }
+  | { kind: "npc_exp"; name: string; amount: number }
+  | { kind: "npc_inv_show"; name: string }
+  | { kind: "npc_inv_add"; name: string; items: Array<{ item: string; qty: number }> }
+  | { kind: "npc_inv_remove"; name: string; item: string; qty: number }
+  | { kind: "npc_inv_clear"; name: string }
+  | { kind: "npc_cast"; name: string; level: number }
+  | { kind: "npc_spell_cast"; name: string; spell: string; level?: number }
+  | { kind: "npc_spells_show"; name: string }
+  | { kind: "npc_spells_add"; name: string; spell: string }
+  | { kind: "npc_spells_remove"; name: string; spell: string }
+  | { kind: "npc_spells_clear"; name: string };
 
 function extractQty(s: string): [string, number] {
   const m = s.match(/^(.*\S)\s+(\d+)\s*$/);
@@ -454,6 +487,195 @@ export function parseTopLevel(text: string): ParsedCommand | null {
   {
     const m = trimmed.match(/^!help(?:\s+(.+))?\s*$/i);
     if (m) return { kind: "help", topic: m[1]?.trim() || undefined };
+  }
+
+  // NPC COMMANDS
+  // Structural (keyword first): !npc create/list/delete
+  if (/^!npc\s+list\s*$/i.test(trimmed)) return { kind: "npc_list" };
+  {
+    const m = trimmed.match(/^!npc\s+create\s+(.+)$/i);
+    if (m) return { kind: "npc_create", name: m[1].trim() };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+delete\s+(.+)$/i);
+    if (m) return { kind: "npc_delete", name: m[1].trim() };
+  }
+
+  // Sheet operations (name first): more specific subcommands before general ones.
+  // Name captured with (.+?) non-greedy — stops at first occurrence of the subcommand keyword.
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+abilities\s+(.+)$/i);
+    if (m) {
+      const tokens = m[2].trim().split(/\s+/);
+      const form = parseForm(tokens[0]);
+      const rest = tokens.slice(1);
+      if (rest.length >= 2 && rest.length % 2 === 0) {
+        const pairs: AbilityPair[] = [];
+        for (let i = 0; i < rest.length; i += 2) {
+          const ability = parseAbility(rest[i]);
+          const score = Number(rest[i + 1]);
+          if (ability && Number.isFinite(score)) pairs.push({ ability, score });
+        }
+        if (pairs.length > 0) return { kind: "npc_set_abilities", name: m[1].trim(), form, pairs };
+      }
+    }
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+ability\s+([a-zA-Z]+)\s+(irl|ingame)\s+(-?\d+)\s*$/i);
+    if (m) {
+      const ability = parseAbility(m[2]);
+      if (!ability) return null;
+      return { kind: "npc_set_ability", name: m[1].trim(), ability, form: parseForm(m[3]), score: Number(m[4]) };
+    }
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+maxslot\s+([1-9])\s+(\d+)\s*$/i);
+    if (m) return { kind: "npc_set_maxslot", name: m[1].trim(), level: Number(m[2]), value: Number(m[3]) };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+maxhp\s+(\d+)\s*$/i);
+    if (m) return { kind: "npc_set_maxhp", name: m[1].trim(), value: Number(m[2]) };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+temphp\s+(\d+)\s*$/i);
+    if (m) return { kind: "npc_set_temphp", name: m[1].trim(), value: Number(m[2]) };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+caster\s+(full|half|none)\s*$/i);
+    if (m) return { kind: "npc_set_caster", name: m[1].trim(), casterType: m[2].toLowerCase() as CasterType };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+class\s+(.+)$/i);
+    if (m) return { kind: "npc_set_class", name: m[1].trim(), value: m[2].trim() };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+slot\s+([1-9])\s+(\d+)\s*$/i);
+    if (m) return { kind: "npc_set_slot", name: m[1].trim(), level: Number(m[2]), value: Number(m[3]) };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+hd\s+(\d+)\s*$/i);
+    if (m) return { kind: "npc_set_hd", name: m[1].trim(), value: Number(m[2]) };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+pb\s+(-?\d+)\s*$/i);
+    if (m) return { kind: "npc_set_pb", name: m[1].trim(), pb: Number(m[2]) };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+hp\s+(\d+)\s*$/i);
+    if (m) return { kind: "npc_set_hp", name: m[1].trim(), value: Number(m[2]) };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+adjust\s+hp\s+(-?\d+)\s*$/i);
+    if (m) return { kind: "npc_adjust_hp", name: m[1].trim(), delta: Number(m[2]) };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+prof\s+skill\s+(.+)$/i);
+    if (m) {
+      const mm = m[2].trim().match(/^(.+?)(?:\s+(exp|expertise|none|0|1|2))?\s*$/i);
+      if (!mm) return null;
+      const skill = mm[1].trim();
+      const mode = (mm[2] ?? "1").toLowerCase();
+      const level: ProfLevel = mode === "none" || mode === "0" ? 0 : mode === "exp" || mode === "expertise" || mode === "2" ? 2 : 1;
+      return { kind: "npc_prof_skill", name: m[1].trim(), skill, level };
+    }
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+prof\s+save\s+(.+)$/i);
+    if (m) {
+      const tokens = m[2].trim().split(/\s+/);
+      const removing = tokens[tokens.length - 1]?.toLowerCase() === "none";
+      const abilityStr = (removing ? tokens.slice(0, -1) : tokens).join(" ");
+      const ability = parseAbility(abilityStr.trim());
+      if (!ability) return null;
+      return { kind: "npc_prof_save", name: m[1].trim(), ability, proficient: !removing };
+    }
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+use\s+(irl|ingame)\s*$/i);
+    if (m) return { kind: "npc_use", name: m[1].trim(), form: m[2].toLowerCase() as Form };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+rest\s+short(?:\s+(\d+))?\s*$/i);
+    if (m) {
+      const n = m[2] ? parseInt(m[2], 10) : 1;
+      return { kind: "npc_rest_short", name: m[1].trim(), dice: Number.isFinite(n) && n >= 1 ? n : 1 };
+    }
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+rest\s+long\s*$/i);
+    if (m) return { kind: "npc_rest_long", name: m[1].trim() };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+exp\s+(-?\d+)\s*$/i);
+    if (m) return { kind: "npc_exp", name: m[1].trim(), amount: Number(m[2]) };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+inv\s+add\s+(.+)$/i);
+    if (m) {
+      const items = m[2].split(";")
+        .map(s => s.trim()).filter(Boolean)
+        .map(part => { const [item, qty] = extractQty(part); return { item, qty }; })
+        .filter(({ item }) => item.length > 0);
+      if (items.length === 0) return null;
+      return { kind: "npc_inv_add", name: m[1].trim(), items };
+    }
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+inv\s+remove\s+(.+)$/i);
+    if (m) {
+      const [item, qty] = extractQty(m[2].trim());
+      if (!item) return null;
+      return { kind: "npc_inv_remove", name: m[1].trim(), item, qty };
+    }
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+inv\s+clear\s*$/i);
+    if (m) return { kind: "npc_inv_clear", name: m[1].trim() };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+inv\s*$/i);
+    if (m) return { kind: "npc_inv_show", name: m[1].trim() };
+  }
+  {
+    // !npc <name> cast blind <1-9> — must come before general cast
+    const m = trimmed.match(/^!npc\s+(.+?)\s+cast\s+blind\s+([1-9])\s*$/i);
+    if (m) return { kind: "npc_cast", name: m[1].trim(), level: Number(m[2]) };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+cast\s+(.+)$/i);
+    if (m) {
+      const raw = m[2].trim();
+      const levelMatch = raw.match(/^(.*\S)\s+([1-9])\s*$/);
+      const spell = (levelMatch ? levelMatch[1] : raw).trim();
+      const level = levelMatch ? parseInt(levelMatch[2], 10) : undefined;
+      if (!spell) return null;
+      return { kind: "npc_spell_cast", name: m[1].trim(), spell, level };
+    }
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+spells\s+add\s+(.+)$/i);
+    if (m) return { kind: "npc_spells_add", name: m[1].trim(), spell: m[2].trim().toLowerCase() };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+spells\s+remove\s+(.+)$/i);
+    if (m) return { kind: "npc_spells_remove", name: m[1].trim(), spell: m[2].trim().toLowerCase() };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+spells\s+clear\s*$/i);
+    if (m) return { kind: "npc_spells_clear", name: m[1].trim() };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+spells\s*$/i);
+    if (m) return { kind: "npc_spells_show", name: m[1].trim() };
+  }
+  {
+    const m = trimmed.match(/^!npc\s+(.+?)\s+reset\s*$/i);
+    if (m) return { kind: "npc_reset", name: m[1].trim() };
+  }
+  {
+    // Bare sheet view — must come last among name-first patterns
+    const m = trimmed.match(/^!npc\s+(.+?)\s+sheet\s*$/i);
+    if (m) return { kind: "npc_sheet", name: m[1].trim() };
   }
 
   return null;

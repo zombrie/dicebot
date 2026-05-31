@@ -17,10 +17,11 @@ export function renderHelp(topic?: string): string {
   if (["cal", "calendar", "date", "dates"].includes(t)) return calHelp();
   if (["rest", "cast", "casting", "slots"].includes(t)) return restHelp();
   if (["spell", "spells", "spellbook", "known"].includes(t)) return spellHelp();
+  if (["npc", "npcs"].includes(t)) return npcHelp();
 
   return (
     `I don't recognize the help topic ${code(topic!)}.\n` +
-    `Try: ${code("!help")} ${code("!help roll")} ${code("!help check")} ${code("!help char")} ${code("!help dm")} ${code("!help inv")} ${code("!help lib")} ${code("!help exp")} ${code("!help cal")} ${code("!help rest")}`
+    `Try: ${code("!help")} ${code("!help roll")} ${code("!help check")} ${code("!help char")} ${code("!help dm")} ${code("!help inv")} ${code("!help lib")} ${code("!help exp")} ${code("!help cal")} ${code("!help rest")} ${code("!help npc")}`
   );
 }
 
@@ -324,5 +325,47 @@ function invHelp(): string {
     `Clear all items:`,
     `• ${code("!inv clear")} — your own`,
     `• ${code("!inv clear @user")} — DM only`,
+  ].join("\n");
+}
+
+function npcHelp(): string {
+  return [
+    `🧙 **NPC Help** *(DM only)*`,
+    ``,
+    `Manage NPC roster:`,
+    `• ${code("!npc create Brother Aldric")} — create a new NPC with a default sheet`,
+    `• ${code("!npc list")} — list all NPCs`,
+    `• ${code("!npc delete Brother Aldric")} — permanently remove an NPC`,
+    ``,
+    `View sheet / inventory:`,
+    `• ${code("!npc Brother Aldric sheet")}`,
+    `• ${code("!npc Brother Aldric inv")}`,
+    ``,
+    `Edit stats (mirrors !char):`,
+    `• ${code("!npc Brother Aldric set hp 40")}`,
+    `• ${code("!npc Brother Aldric set maxhp 40")}`,
+    `• ${code("!npc Brother Aldric adjust hp -12")} — take damage`,
+    `• ${code("!npc Brother Aldric set ability str ingame 18")}`,
+    `• ${code("!npc Brother Aldric set abilities ingame str 18 dex 14 con 16")}`,
+    `• ${code("!npc Brother Aldric set class Paladin")}`,
+    `• ${code("!npc Brother Aldric set caster half")}`,
+    `• ${code("!npc Brother Aldric set pb 3")}`,
+    `• ${code("!npc Brother Aldric set hd 10")}`,
+    `• ${code("!npc Brother Aldric prof skill Athletics")}`,
+    `• ${code("!npc Brother Aldric prof save str")}`,
+    ``,
+    `Rests & experience:`,
+    `• ${code("!npc Brother Aldric rest long")}`,
+    `• ${code("!npc Brother Aldric rest short 2")}`,
+    `• ${code("!npc Brother Aldric exp 500")}`,
+    ``,
+    `Spells & inventory:`,
+    `• ${code("!npc Brother Aldric cast fireball 3")}`,
+    `• ${code("!npc Brother Aldric spells add fireball")}`,
+    `• ${code("!npc Brother Aldric inv add Longsword")}`,
+    `• ${code("!npc Brother Aldric inv remove Longsword")}`,
+    ``,
+    `Reset sheet to default:`,
+    `• ${code("!npc Brother Aldric reset")}`,
   ].join("\n");
 }

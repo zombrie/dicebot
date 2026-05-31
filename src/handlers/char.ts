@@ -46,13 +46,17 @@ export async function handleCharSetAbility(ctx: HandlerContext, parsed: Extract<
 export async function handleCharSetAbilities(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "char_set_abilities" }>): Promise<void> {
   const { who, reply, withTargetSheet } = ctx;
   await withTargetSheet(parsed.targetUserId, async (sheet, ft, targetId) => {
-    for (const { ability, score } of parsed.pairs) {
-      if (!Number.isFinite(score) || score < 1 || score > 30) continue;
+    const applied = parsed.pairs.filter(({ score }) => Number.isFinite(score) && score >= 1 && score <= 30);
+    if (applied.length === 0) {
+      await reply("⚠️ No valid ability scores provided (must be 1–30).");
+      return;
+    }
+    for (const { ability, score } of applied) {
       sheet.forms[parsed.form].abilities[ability] = score;
     }
     await saveSheet(targetId, sheet);
     const formLabel = sheet.forms[parsed.form].label ?? parsed.form.toUpperCase();
-    const summary = parsed.pairs.map(p => `${p.ability.toUpperCase()} ${p.score}`).join(", ");
+    const summary = applied.map(p => `${p.ability.toUpperCase()} ${p.score}`).join(", ");
     await reply(`${who} updated **${formLabel}** abilities: ${summary}${ft}.`);
   });
 }
