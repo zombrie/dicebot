@@ -1,3 +1,4 @@
+// Handlers for !cast, !spell, !spells (known list), !attack, and !rest.
 import type { HandlerContext } from "./context";
 import type { ParsedCommand } from "../commands";
 import { saveSheet, loadSheet } from "../sheet";

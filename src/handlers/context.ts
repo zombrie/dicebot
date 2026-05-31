@@ -1,3 +1,4 @@
+// Builds HandlerContext from a message event; shared utilities for all command handlers.
 import {
   rootServer,
   type ChannelGuid,
@@ -42,6 +43,8 @@ export async function makeContext(evt: ChannelMessageCreatedEvent): Promise<Hand
     await rootServer.community.channelMessages.create(req);
   };
 
+  // Checks DM auth for cross-player edits, loads the sheet, and computes the "for @user" suffix.
+  // fn is only called when auth passes; fn is responsible for saving the sheet after mutation.
   const withTargetSheet = async (
     targetUserId: string | undefined,
     fn: (sheet: Sheet, ft: string, targetId: UserGuid) => Promise<void>

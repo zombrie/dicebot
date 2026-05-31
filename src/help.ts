@@ -1,3 +1,4 @@
+// User-facing help text, dispatched by topic from !help.
 function code(s: string) {
   return `\`${s}\``;
 }

@@ -1,3 +1,4 @@
+// Handlers for !r (dice rolls) and !check (ability/skill/save checks).
 import type { HandlerContext } from "./context";
 import type { ParsedCommand } from "../commands";
 import { rollDice, formatDice } from "../dice";

@@ -1,3 +1,4 @@
+// Shared item library: weight/price metadata and magic flagging used for inventory capacity enforcement.
 import { storageGet, storageSet } from "./storage";
 
 export type ItemEntry = {

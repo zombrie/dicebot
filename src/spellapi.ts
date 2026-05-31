@@ -1,3 +1,4 @@
+// Open5e spell lookup (~1900 spells) with damage scaling and formatted display for Root messages.
 export interface CastingOption {
   type: string;       // "default", "slot_level_3", "slot_level_4", etc.
   damage_roll: string | null;
@@ -73,7 +74,7 @@ export async function lookupSpellData(name: string): Promise<Open5eSpell> {
     if (results.length === 0) {
       throw new Error(`No spell found matching "${trimmed}". Check the spelling and try again.`);
     }
-    results.sort((a, b) => a.name.length - b.name.length);
+    results.sort((a, b) => a.name.length - b.name.length); // shortest match = best fit
   }
 
   return results[0];

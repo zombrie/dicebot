@@ -1,3 +1,4 @@
+// Handlers for !dm (roster), !cal (calendar), and !import (D&D Beyond character import).
 import type { HandlerContext } from "./context";
 import type { ParsedCommand } from "../commands";
 import { saveSheet, loadSheet } from "../sheet";

@@ -1,3 +1,4 @@
+// File-based JSON key/value store. Used instead of the Root SDK's appData, which doesn't persist for dev bots.
 import { readFile, writeFile } from "fs/promises";
 import { mkdirSync, existsSync } from "fs";
 import { join } from "path";

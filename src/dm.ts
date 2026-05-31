@@ -1,3 +1,4 @@
+// DM roster: first-come claim, then DM-only add/remove. DM status gates cross-player sheet edits.
 import { storageGet, storageSet } from "./storage";
 
 const DM_KEY = "dms";

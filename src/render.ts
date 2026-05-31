@@ -1,3 +1,4 @@
+// Formats game data as markdown strings for posting to Root channels.
 import type { Sheet, Ability } from "./skills";
 import { abilityMod, expToLevel } from "./skills";
 import type { ItemEntry } from "./itemlib";
@@ -97,6 +98,7 @@ export function renderSheet(sheet: Sheet): string {
   return lines.join("\n");
 }
 
+// Shared row formatter used by both renderSheet and handleInvShow. Pass entry for weight/magic tags.
 export function renderInventoryRow(idx: number, item: string, qty: number, entry?: ItemEntry): string {
   const magicTag = entry && isMagic(entry) ? " ✨" : "";
   const weightPart = entry ? ` — ${(entry.weight * qty).toFixed(1)} lb` : "";

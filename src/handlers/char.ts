@@ -1,3 +1,4 @@
+// Handlers for !char and !sheet commands: ability scores, HP, proficiencies, spell slots, and sheet display.
 import type { HandlerContext } from "./context";
 import type { ParsedCommand } from "../commands";
 import { saveSheet, loadSheet, defaultSheet } from "../sheet";

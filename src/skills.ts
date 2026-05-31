@@ -1,3 +1,4 @@
+// D&D 5e game mechanics: ability scores, proficiency, checks, XP tables, and spell slot tables.
 export type Ability = "str" | "dex" | "con" | "int" | "wis" | "cha";
 export type Form = "irl" | "ingame";
 export type ProfLevel = 0 | 1 | 2;
@@ -65,6 +66,7 @@ export const SKILL_TO_ABILITY: Record<string, Ability> = {
   persuasion: "cha",
 };
 
+// Normalizes a skill/save name to a whitespace-free lowercase key for storage lookups.
 export function norm(s: string) {
   return s.toLowerCase().trim().replace(/\s+/g, "");
 }
@@ -162,6 +164,7 @@ export function computeCheck(sheet: Sheet, input: string, formOverride?: Form): 
   return { title, bonus, total, d20, breakdown };
 }
 
+// Homebrew XP thresholds (not standard 5e) — edit here to adjust levelling pace.
 export const LVLUP_TABLE = [0, 60, 180, 540, 1300, 2800, 4600, 6800, 9600, 12800, 17000, 20000, 24000, 28000, 33000, 38000, 44000, 50000, 57000, 65525];
 
 export function expToLevel(exp: number): number {

@@ -1,4 +1,4 @@
-// server/src/dice.ts
+// Dice rolling engine: parses notation, rolls, and formats results. No side effects.
 export type DiceResult = {
     notation: string;
     rolls: number[];
@@ -33,6 +33,7 @@ export type DiceResult = {
     if (sides < 2 || sides > 1000) throw new Error("Die sides must be 2–1000.");
     if (keep && (keep.n < 1 || keep.n > count)) throw new Error("Keep must be between 1 and the number of dice.");
   
+    // adv/dis is just 2d20kh1 / 2d20kl1 — reuse the keep machinery rather than special-casing
     if (mode) {
       count = 2;
       keep = { which: mode === "adv" ? "h" : "l", n: 1 };

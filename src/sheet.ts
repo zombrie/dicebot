@@ -1,3 +1,4 @@
+// Per-user character sheet persistence; handles default creation and legacy inventory migration.
 import type { UserGuid } from "@rootsdk/server-bot";
 import type { Sheet } from "./skills";
 import { registerMember } from "./party";
@@ -5,7 +6,7 @@ import { storageGet, storageSet } from "./storage";
 
 export function defaultSheet(): Sheet {
   return {
-    version: 1,
+    version: 1, // increment and add a migration branch in loadSheet if the Sheet type changes
     activeForm: "irl",
     pb: 2,
     forms: {

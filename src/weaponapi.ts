@@ -1,3 +1,4 @@
+// Open5e weapon lookup (~500 weapons) with STR/DEX/finesse ability selection for attack rolls.
 import type { Sheet } from "./skills";
 import { abilityMod } from "./skills";
 
@@ -43,7 +44,7 @@ export async function lookupWeapon(name: string): Promise<Open5eWeapon> {
         `Use \`!r\` to roll manually for custom weapons.`
       );
     }
-    results.sort((a, b) => a.name.length - b.name.length);
+    results.sort((a, b) => a.name.length - b.name.length); // shortest match = best fit
   }
   return results[0];
 }

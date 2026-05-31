@@ -1,3 +1,4 @@
+// Handlers for !inv (player inventory) and !lib (DM-only item library).
 import type { HandlerContext } from "./context";
 import type { ParsedCommand } from "../commands";
 import { saveSheet, loadSheet } from "../sheet";

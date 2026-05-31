@@ -1,3 +1,4 @@
+// Tracks the set of players who have ever saved a sheet, used for !exprank.
 import { storageGet, storageSet } from "./storage";
 
 const PARTY_KEY = "party:members";

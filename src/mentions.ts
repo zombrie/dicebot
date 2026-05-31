@@ -1,3 +1,4 @@
+// Utilities for the Root SDK mention format: [@nick](root://user/id).
 export function parseMentionId(text: string): string | undefined {
   return text.match(/\[@[^\]]*\]\(root:\/\/user\/([^)]+)\)/)?.[1];
 }

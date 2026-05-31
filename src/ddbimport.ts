@@ -1,3 +1,4 @@
+// Fetches and maps a public D&D Beyond character sheet to the internal Sheet format.
 import type { Sheet, Ability, CasterType, ProfLevel } from "./skills";
 import { pbForLevel, spellSlotsForLevel, LVLUP_TABLE } from "./skills";
 
@@ -45,6 +46,7 @@ const SKILL_SUBTYPES: Record<string, string> = {
 };
 
 const CASTER_TYPES: Record<string, CasterType> = {
+  // Warlock uses Pact Magic (short-rest slots), not Spell Slots — modeled as "full" here as a simplification.
   Bard: "full", Cleric: "full", Druid: "full", Sorcerer: "full", Warlock: "full", Wizard: "full",
   Paladin: "half", Ranger: "half", Artificer: "half",
   Barbarian: "none", Fighter: "none", Monk: "none", Rogue: "none",
@@ -214,7 +216,7 @@ export function parseDDBCharacter(data: DDBCharacterData): Sheet {
   return {
     version: 1,
     name: data.name,
-    activeForm: "ingame",
+    activeForm: "ingame", // always switch to ingame on import; irl form is preserved by the caller
     pb,
     forms: {
       irl: { label: "In Real Life", abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },

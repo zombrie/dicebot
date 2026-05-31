@@ -1,3 +1,4 @@
+// In-game event calendar. Dates are stored as YYYYMMDD integers for cheap lexicographic sorting.
 import { storageGet, storageSet } from "./storage";
 export { formatCalDate } from "./dateUtils";
 

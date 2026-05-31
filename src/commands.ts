@@ -1,3 +1,4 @@
+// Parses raw message text into typed ParsedCommand values. Pattern order matters: more specific patterns must come before general ones.
 import type { Ability, Form, ProfLevel, CasterType } from "./skills";
 import { ABILITY_ALIASES } from "./skills";
 import { parseDDBId } from "./ddbimport";

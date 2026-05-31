@@ -1,3 +1,4 @@
+// Handlers for !exp (award/deduct XP with auto level-up) and !exprank (party leaderboard).
 import type { HandlerContext } from "./context";
 import type { ParsedCommand } from "../commands";
 import { saveSheet, loadSheet } from "../sheet";

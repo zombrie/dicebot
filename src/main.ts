@@ -1,3 +1,4 @@
+// Bot entry point: wires the Root SDK message event to the command router.
 import { rootServer, ChannelMessageEvent } from "@rootsdk/server-bot";
 import type { ChannelMessageCreatedEvent } from "@rootsdk/server-bot";
 import { parseTopLevel } from "./commands";
