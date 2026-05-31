@@ -3,12 +3,13 @@ import { storageGet, storageSet } from "./storage";
 export type ItemEntry = {
   weight: number; // lbs
   price: number;  // gp
-  color: number;  // ANSI color code; 37 = white (mundane), anything else = magic
+  color: number;  // ANSI color code
+  magic?: boolean; // explicit flag; falls back to color !== 37 for legacy entries
   description: string;
 };
 
 export function isMagic(entry: ItemEntry): boolean {
-  return (entry.color ?? 37) !== 37;
+  return entry.magic ?? (entry.color ?? 37) !== 37;
 }
 
 const LIB_KEY = "itemlib:global";

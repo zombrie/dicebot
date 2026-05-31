@@ -1,4 +1,3 @@
-// server/src/skills.ts
 export type Ability = "str" | "dex" | "con" | "int" | "wis" | "cha";
 export type Form = "irl" | "ingame";
 export type ProfLevel = 0 | 1 | 2;

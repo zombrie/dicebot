@@ -2,6 +2,7 @@ import type { HandlerContext } from "./context";
 import type { ParsedCommand } from "../commands";
 import { saveSheet, loadSheet } from "../sheet";
 import { getItem, addItem, delItem, listItems, calcInventoryWeight, isMagic } from "../itemlib";
+import { renderInventoryRow } from "../render";
 import { isDM } from "../dm";
 import type { UserGuid } from "@rootsdk/server-bot";
 
@@ -25,9 +26,7 @@ export async function handleInvShow(ctx: HandlerContext, parsed: Extract<ParsedC
   const lines = [`${label} inventory${weightStr}:`];
   invEntries.forEach(([item, qty], i) => {
     const entry = lib[item] ?? Object.entries(lib).find(([k]) => k.toLowerCase() === item.toLowerCase())?.[1];
-    const weightPart = entry ? ` — ${(entry.weight * qty).toFixed(1)} lb` : "";
-    const magicTag = entry && isMagic(entry) ? " ✨" : "";
-    lines.push(`${i + 1}. **${item}**${magicTag}${qty !== 1 ? ` ×${qty}` : ""}${weightPart}`);
+    lines.push(renderInventoryRow(i, item, qty, entry));
   });
   await reply(lines.join("\n"));
 }
@@ -99,7 +98,7 @@ export async function handleLibAdd(ctx: HandlerContext, parsed: Extract<ParsedCo
     return;
   }
   for (const { name, weight, price, color, description } of parsed.items) {
-    await addItem(name, { weight, price, color, description });
+    await addItem(name, { weight, price, color, magic: color !== 37, description });
   }
   if (parsed.items.length === 1) {
     const { name, weight, price, color } = parsed.items[0];

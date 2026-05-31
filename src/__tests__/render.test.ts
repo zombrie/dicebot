@@ -89,23 +89,23 @@ describe("renderSheet", () => {
       const sheet = makeSheet();
       sheet.inventory = { "Sword of Fire": 1, "Health Potion": 1, "Rope (50ft)": 1 };
       const out = renderSheet(sheet);
-      expect(out).toContain("1. Sword of Fire");
-      expect(out).toContain("2. Health Potion");
-      expect(out).toContain("3. Rope (50ft)");
+      expect(out).toContain("1. **Sword of Fire**");
+      expect(out).toContain("2. **Health Potion**");
+      expect(out).toContain("3. **Rope (50ft)**");
     });
 
     it("shows quantity when greater than 1", () => {
       const sheet = makeSheet();
       sheet.inventory = { Arrows: 20 };
-      expect(renderSheet(sheet)).toContain("Arrows × 20");
+      expect(renderSheet(sheet)).toContain("Arrows** ×20");
     });
 
     it("does not show × 1 for single items", () => {
       const sheet = makeSheet();
       sheet.inventory = { Shield: 1 };
       const out = renderSheet(sheet);
-      expect(out).toContain("1. Shield");
-      expect(out).not.toContain("× 1");
+      expect(out).toContain("1. **Shield**");
+      expect(out).not.toContain("×1");
     });
 
     it("shows Inventory header when items are present", () => {

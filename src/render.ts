@@ -1,5 +1,7 @@
 import type { Sheet, Ability } from "./skills";
 import { abilityMod, expToLevel } from "./skills";
+import type { ItemEntry } from "./itemlib";
+import { isMagic } from "./itemlib";
 
 const ABIL_ORDER: Ability[] = ["str", "dex", "con", "int", "wis", "cha"];
 
@@ -87,12 +89,16 @@ export function renderSheet(sheet: Sheet): string {
   const invEntries = Object.entries(sheet.inventory);
   if (invEntries.length > 0) {
     lines.push(`**Inventory:**`);
-    invEntries.forEach(([item, qty], i) => {
-      lines.push(`${i + 1}. ${item}${qty !== 1 ? ` × ${qty}` : ""}`);
-    });
+    invEntries.forEach(([item, qty], i) => lines.push(renderInventoryRow(i, item, qty)));
   } else {
     lines.push(`**Inventory:** *(empty)*`);
   }
 
   return lines.join("\n");
+}
+
+export function renderInventoryRow(idx: number, item: string, qty: number, entry?: ItemEntry): string {
+  const magicTag = entry && isMagic(entry) ? " ✨" : "";
+  const weightPart = entry ? ` — ${(entry.weight * qty).toFixed(1)} lb` : "";
+  return `${idx + 1}. **${item}**${magicTag}${qty !== 1 ? ` ×${qty}` : ""}${weightPart}`;
 }

@@ -110,6 +110,7 @@ export async function handleCharSetSlot(ctx: HandlerContext, parsed: Extract<Par
   const { who, reply, withTargetSheet } = ctx;
   await withTargetSheet(parsed.targetUserId, async (sheet, ft, targetId) => {
     if (!sheet.spellSlots) sheet.spellSlots = {};
+    // No max-slot guard — intentional DM override to correct slot counts mid-session.
     sheet.spellSlots[String(parsed.level)] = parsed.value;
     await saveSheet(targetId, sheet);
     await reply(`${who} set level ${parsed.level} spell slots to **${parsed.value}**${ft}.`);
