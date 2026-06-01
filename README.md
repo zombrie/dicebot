@@ -156,7 +156,7 @@ Spell slots are auto-updated when `!exp` triggers a level-up (requires caster ty
 !exp 300                     # award 300 exp to yourself
 !exp -100                    # deduct exp
 !exp 500 @user               ← DM only — award to a player
-!exprank                     # leaderboard: all party members sorted by exp
+!exprank                     # leaderboard: ingame characters (players + NPCs with exp) sorted by exp
 ```
 
 When exp crosses a level threshold, **`!exp` automatically:**
@@ -375,65 +375,66 @@ Full-featured sheets for named NPCs — same capabilities as player sheets. All 
 !npc delete Brother Aldric     # permanently remove an NPC and their data
 ```
 
-NPC names are multi-word. For all sheet commands below, the name comes first.
+#### Sheet operations — `#NPC-name` as the target
 
-#### View sheet and inventory
-
-```
-!npc Brother Aldric sheet
-!npc Brother Aldric inv
-```
-
-#### Stats (mirrors !char)
+NPC sheet commands mirror the standard player commands exactly, with `#NPC-name` in place of `@user`. Multi-word names are supported.
 
 ```
-!npc Brother Aldric set hp 40
-!npc Brother Aldric set maxhp 60
-!npc Brother Aldric set hd 10
-!npc Brother Aldric set temphp 5
-!npc Brother Aldric adjust hp -12        # takes damage; temp HP absorbed first
-!npc Brother Aldric set ability str ingame 18
-!npc Brother Aldric set abilities ingame str 18 dex 14 con 16 int 10 wis 12 cha 8
-!npc Brother Aldric set class Paladin
-!npc Brother Aldric set caster half
-!npc Brother Aldric set pb 3
-!npc Brother Aldric prof skill Athletics
-!npc Brother Aldric prof skill Perception exp
-!npc Brother Aldric prof save str
-!npc Brother Aldric use ingame
+!sheet #Brother Aldric
+!sheet reset #Brother Aldric
+!inv #Brother Aldric
+```
+
+#### Stats (same as !char)
+
+```
+!char set hp 40 #Brother Aldric
+!char set maxhp 60 #Brother Aldric
+!char set hd 10 #Brother Aldric
+!char set temphp 5 #Brother Aldric
+!char adjust hp -12 #Brother Aldric        # temp HP absorbed first
+!char set ability str ingame 18 #Brother Aldric
+!char set abilities ingame str 18 dex 14 con 16 int 10 wis 12 cha 8 #Brother Aldric
+!char set class Paladin #Brother Aldric
+!char set caster half #Brother Aldric
+!char set pb 3 #Brother Aldric
+!char prof skill Athletics #Brother Aldric
+!char prof skill Perception exp #Brother Aldric
+!char prof save str #Brother Aldric
+!char use ingame #Brother Aldric
 ```
 
 #### Rests, experience, spell slots
 
 ```
-!npc Brother Aldric rest long
-!npc Brother Aldric rest short 2
-!npc Brother Aldric exp 500
-!npc Brother Aldric set maxslot 1 4
-!npc Brother Aldric set slot 1 2
-!npc Brother Aldric cast fireball 3
-!npc Brother Aldric cast blind 2
+!rest long #Brother Aldric
+!rest short 2 #Brother Aldric
+!exp 500 #Brother Aldric
+!char set maxslot 1 4 #Brother Aldric
+!char set slot 1 2 #Brother Aldric
+!cast fireball 3 #Brother Aldric
+!cast blind 2 #Brother Aldric
 ```
 
 #### Inventory and known spells
 
 ```
-!npc Brother Aldric inv add Longsword
-!npc Brother Aldric inv add Arrows 20; Rations 5
-!npc Brother Aldric inv remove Arrows 5
-!npc Brother Aldric inv clear
-!npc Brother Aldric spells add fireball
-!npc Brother Aldric spells remove fireball
-!npc Brother Aldric spells clear
+!inv add Longsword #Brother Aldric
+!inv add Arrows 20; Rations 5 #Brother Aldric
+!inv remove Arrows 5 #Brother Aldric
+!inv clear #Brother Aldric
+!spells add fireball #Brother Aldric
+!spells remove fireball #Brother Aldric
+!spells clear #Brother Aldric
 ```
 
 #### Reset
 
 ```
-!npc Brother Aldric reset          # wipes sheet back to default (name preserved)
+!sheet reset #Brother Aldric       # wipes sheet back to default (name preserved)
 ```
 
-NPCs are excluded from `!exprank` — that leaderboard shows players only.
+NPCs appear in `!exprank` once they have exp tracked (same as players).
 
 ---
 
@@ -535,7 +536,7 @@ npm run build       # compile TypeScript → dist/
 npm run bot         # start dev host (requires build first)
 npm run rebuild     # build + start in one step
 npm run clean       # wipe dist/
-npm test            # single test run (362 tests)
+npm test            # single test run (363 tests)
 npm run test:watch  # watch mode
 ```
 
@@ -554,6 +555,8 @@ SDK-dependent modules (`main`, `sheet`, `dm`, `itemlib`, `calendar`, `party`) an
 5. Add help text in `help.ts`
 6. Add parse tests in `src/__tests__/commands.test.ts`
 
-### Adding a new NPC command
+### Adding a new NPC sheet command
 
-Same as above, but the handler goes in `src/handlers/npc.ts`. Use `withNPC` for any command that needs to read and write a sheet; use `requireDM` + manual lookup for read-only commands.
+NPC sheet operations reuse player command handlers via `withTargetSheet` in `context.ts`. When `targetUserId` starts with `#`, it automatically routes to NPC storage instead of player storage. No separate handler needed — just add `#NPC-name` support to the parser pattern and the existing handler handles both cases.
+
+For structural NPC commands (like a future `!npc rename`), add to `src/handlers/npc.ts`.

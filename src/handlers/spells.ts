@@ -1,55 +1,81 @@
 // Handlers for !cast, !spell, !spells (known list), !attack, and !rest.
+import { npcName } from "./context";
 import type { HandlerContext } from "./context";
 import type { ParsedCommand } from "../commands";
-import { saveSheet, loadSheet } from "../sheet";
+import { loadSheet } from "../sheet";
 import { lookupSpell, lookupSpellData, getDamageForLevel } from "../spellapi";
 import { lookupWeapon, getAttackMod, isRanged } from "../weaponapi";
 import { rollDice } from "../dice";
 import { rollD20 } from "../skills";
 import type { UserGuid } from "@rootsdk/server-bot";
 
-export async function handleSpellsShow(ctx: HandlerContext, _parsed: Extract<ParsedCommand, { kind: "spells_show" }>): Promise<void> {
-  const { evt, who, reply } = ctx;
-  const sheet = await loadSheet(evt.userId as UserGuid);
-  const spells = sheet.knownSpells;
-  if (!spells || spells.length === 0) {
-    await reply(`📖 ${who} has no known spells set. Import from D&D Beyond with \`!import\`, or add with \`!spells add <name>\`.`);
+export async function handleSpellsShow(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "spells_show" }>): Promise<void> {
+  const { evt, who, reply, withTargetSheet } = ctx;
+  const displayName = npcName(parsed.targetUserId) ?? who;
+
+  // Read-only: NPC spells are publicly visible (no DM required), load directly.
+  if (parsed.targetUserId?.startsWith('#')) {
+    const { findNPCName, loadNPCSheet } = await import("../npclib");
+    const name = parsed.targetUserId.slice(1).trim();
+    const canonical = await findNPCName(name);
+    if (!canonical) { await reply(`⚠️ NPC "${name}" not found.`); return; }
+    const sheet = await loadNPCSheet(canonical);
+    const spells = sheet.knownSpells;
+    if (!spells || spells.length === 0) {
+      await reply(`📖 **${canonical}** has no known spells set.`);
+      return;
+    }
+    await reply(`📖 **${canonical}'s known spells (${spells.length}):**\n${[...spells].sort().join(", ")}`);
     return;
   }
-  await reply(`📖 **${who}'s known spells (${spells.length}):**\n${[...spells].sort().join(", ")}`);
+
+  await withTargetSheet(parsed.targetUserId, async (sheet, _ft, _save) => {
+    const spells = sheet.knownSpells;
+    if (!spells || spells.length === 0) {
+      await reply(`📖 ${displayName} has no known spells set. Import from D&D Beyond with \`!import\`, or add with \`!spells add <name>\`.`);
+      return;
+    }
+    await reply(`📖 **${displayName}'s known spells (${spells.length}):**\n${[...spells].sort().join(", ")}`);
+  });
 }
 
 export async function handleSpellsAdd(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "spells_add" }>): Promise<void> {
-  const { evt, who, reply } = ctx;
-  const sheet = await loadSheet(evt.userId as UserGuid);
-  if (!sheet.knownSpells) sheet.knownSpells = [];
-  if (!sheet.knownSpells.includes(parsed.spell)) {
-    sheet.knownSpells.push(parsed.spell);
-    sheet.knownSpells.sort();
-  }
-  await saveSheet(evt.userId as UserGuid, sheet);
-  await reply(`📖 **${parsed.spell}** added to ${who}'s known spells.`);
+  const { evt, who, reply, withTargetSheet } = ctx;
+  const displayName = npcName(parsed.targetUserId) ?? who;
+  await withTargetSheet(parsed.targetUserId, async (sheet, _ft, save) => {
+    if (!sheet.knownSpells) sheet.knownSpells = [];
+    if (!sheet.knownSpells.includes(parsed.spell)) {
+      sheet.knownSpells.push(parsed.spell);
+      sheet.knownSpells.sort();
+    }
+    await save(sheet);
+    await reply(`📖 **${parsed.spell}** added to ${displayName}'s known spells.`);
+  });
 }
 
 export async function handleSpellsRemove(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "spells_remove" }>): Promise<void> {
-  const { evt, who, reply } = ctx;
-  const sheet = await loadSheet(evt.userId as UserGuid);
-  const idx = sheet.knownSpells?.indexOf(parsed.spell) ?? -1;
-  if (idx === -1) {
-    await reply(`⚠️ **${parsed.spell}** not found in your known spells.`);
-    return;
-  }
-  sheet.knownSpells!.splice(idx, 1);
-  await saveSheet(evt.userId as UserGuid, sheet);
-  await reply(`📖 **${parsed.spell}** removed from ${who}'s known spells.`);
+  const { evt, who, reply, withTargetSheet } = ctx;
+  const displayName = npcName(parsed.targetUserId) ?? who;
+  await withTargetSheet(parsed.targetUserId, async (sheet, _ft, save) => {
+    const idx = sheet.knownSpells?.indexOf(parsed.spell) ?? -1;
+    if (idx === -1) {
+      await reply(`⚠️ **${parsed.spell}** not found in ${displayName}'s known spells.`);
+      return;
+    }
+    sheet.knownSpells!.splice(idx, 1);
+    await save(sheet);
+    await reply(`📖 **${parsed.spell}** removed from ${displayName}'s known spells.`);
+  });
 }
 
-export async function handleSpellsClear(ctx: HandlerContext, _parsed: Extract<ParsedCommand, { kind: "spells_clear" }>): Promise<void> {
-  const { evt, who, reply } = ctx;
-  const sheet = await loadSheet(evt.userId as UserGuid);
-  sheet.knownSpells = [];
-  await saveSheet(evt.userId as UserGuid, sheet);
-  await reply(`📖 ${who}'s known spells list cleared.`);
+export async function handleSpellsClear(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "spells_clear" }>): Promise<void> {
+  const { evt, who, reply, withTargetSheet } = ctx;
+  const displayName = npcName(parsed.targetUserId) ?? who;
+  await withTargetSheet(parsed.targetUserId, async (sheet, _ft, save) => {
+    sheet.knownSpells = [];
+    await save(sheet);
+    await reply(`📖 ${displayName}'s known spells list cleared.`);
+  });
 }
 
 export async function handleSpellLookup(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "spell_lookup" }>): Promise<void> {
@@ -62,24 +88,26 @@ export async function handleSpellLookup(ctx: HandlerContext, parsed: Extract<Par
 }
 
 export async function handleCast(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "cast" }>): Promise<void> {
-  const { evt, who, reply } = ctx;
-  const sheet = await loadSheet(evt.userId as UserGuid);
-  const key = String(parsed.level);
-  const cur = sheet.spellSlots?.[key] ?? 0;
-  if (cur <= 0) {
-    await reply(`⚠️ No level ${parsed.level} spell slots remaining!`);
-    return;
-  }
-  if (!sheet.spellSlots) sheet.spellSlots = {};
-  sheet.spellSlots[key] = cur - 1;
-  await saveSheet(evt.userId as UserGuid, sheet);
-  const remaining = sheet.spellSlots[key];
-  await reply(`🪄 ${who} expended a level ${parsed.level} slot. *(${remaining} slot${remaining !== 1 ? "s" : ""} remaining)*`);
+  const { who, reply, withTargetSheet } = ctx;
+  const caster = npcName(parsed.targetUserId) ?? who;
+  await withTargetSheet(parsed.targetUserId, async (sheet, _ft, save) => {
+    const key = String(parsed.level);
+    const cur = sheet.spellSlots?.[key] ?? 0;
+    if (cur <= 0) {
+      await reply(`⚠️ No level ${parsed.level} spell slots remaining!`);
+      return;
+    }
+    if (!sheet.spellSlots) sheet.spellSlots = {};
+    sheet.spellSlots[key] = cur - 1;
+    await save(sheet);
+    const remaining = sheet.spellSlots[key];
+    await reply(`🪄 ${caster} expended a level ${parsed.level} slot. *(${remaining} slot${remaining !== 1 ? "s" : ""} remaining)*`);
+  });
 }
 
 export async function handleSpellCast(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "spell_cast" }>): Promise<void> {
-  const { evt, who, reply } = ctx;
-  const sheet = await loadSheet(evt.userId as UserGuid);
+  const { who, reply, withTargetSheet } = ctx;
+  const caster = npcName(parsed.targetUserId) ?? who;
 
   let spell;
   try {
@@ -89,79 +117,81 @@ export async function handleSpellCast(ctx: HandlerContext, parsed: Extract<Parse
     return;
   }
 
-  if (sheet.knownSpells && sheet.knownSpells.length > 0) {
-    const spellLower = parsed.spell.toLowerCase();
-    const resolvedLower = spell.name.toLowerCase();
-    if (!sheet.knownSpells.some(s => s === spellLower || s === resolvedLower)) {
-      await reply(
-        `⚠️ **${spell.name}** is not in your known spells. ` +
-        `Use \`!spells add ${resolvedLower}\` to add it, or \`!spells\` to see your list.`
-      );
+  await withTargetSheet(parsed.targetUserId, async (sheet, _ft, save) => {
+    if (sheet.knownSpells && sheet.knownSpells.length > 0) {
+      const spellLower = parsed.spell.toLowerCase();
+      const resolvedLower = spell.name.toLowerCase();
+      if (!sheet.knownSpells.some(s => s === spellLower || s === resolvedLower)) {
+        const addCmd = parsed.targetUserId
+          ? `!spells add ${resolvedLower} ${parsed.targetUserId}`
+          : `!spells add ${resolvedLower}`;
+        await reply(`⚠️ **${spell.name}** is not in ${caster}'s known spells. Use \`${addCmd}\` to add it.`);
+        return;
+      }
+    }
+
+    const isCantrip = spell.level === 0;
+    const minLevel = spell.level;
+    const slotLevel = parsed.level ?? minLevel;
+
+    if (!isCantrip && slotLevel < minLevel) {
+      await reply(`⚠️ **${spell.name}** requires at least a level ${minLevel} slot.`);
       return;
     }
-  }
 
-  const isCantrip = spell.level === 0;
-  const minLevel = spell.level;
-  const slotLevel = parsed.level ?? minLevel;
-
-  if (!isCantrip && slotLevel < minLevel) {
-    await reply(`⚠️ **${spell.name}** requires at least a level ${minLevel} slot.`);
-    return;
-  }
-
-  if (!isCantrip) {
-    const key = String(slotLevel);
-    const cur = sheet.spellSlots?.[key] ?? 0;
-    if (cur <= 0) {
-      await reply(`⚠️ No level ${slotLevel} spell slots remaining!`);
-      return;
+    if (!isCantrip) {
+      const key = String(slotLevel);
+      const cur = sheet.spellSlots?.[key] ?? 0;
+      if (cur <= 0) {
+        await reply(`⚠️ No level ${slotLevel} spell slots remaining!`);
+        return;
+      }
+      if (!sheet.spellSlots) sheet.spellSlots = {};
+      sheet.spellSlots[key] = cur - 1;
+      await save(sheet);
     }
-    if (!sheet.spellSlots) sheet.spellSlots = {};
-    sheet.spellSlots[key] = cur - 1;
-    await saveSheet(evt.userId as UserGuid, sheet);
-  }
 
-  const schoolName = typeof spell.school === "object" ? spell.school.name : spell.school;
-  const levelStr = isCantrip
-    ? `${schoolName} cantrip *(no slot used)*`
-    : slotLevel === minLevel
-      ? `level ${slotLevel} ${schoolName}`
-      : `${schoolName} upcast to level ${slotLevel}`;
-  const lines = [`🪄 ${who} cast **${spell.name}** — ${levelStr}!`];
+    const schoolName = typeof spell.school === "object" ? spell.school.name : spell.school;
+    const levelStr = isCantrip
+      ? `${schoolName} cantrip *(no slot used)*`
+      : slotLevel === minLevel
+        ? `level ${slotLevel} ${schoolName}`
+        : `${schoolName} upcast to level ${slotLevel}`;
+    const lines = [`🪄 ${caster} cast **${spell.name}** — ${levelStr}!`];
 
-  const dmgInfo = getDamageForLevel(spell, slotLevel);
-  if (dmgInfo) {
-    try {
-      const result = rollDice(dmgInfo.roll);
-      const dmgType = spell.damage_types?.length ? ` ${spell.damage_types.join("/")}` : "";
-      const upcastNote = !dmgInfo.exact && slotLevel > minLevel
-        ? ` *(base damage — check \`!spell ${spell.name}\` for upcasting)*`
-        : "";
-      lines.push(`${dmgInfo.roll}${dmgType} → **${result.total}**${upcastNote}`);
-    } catch {
-      lines.push(`Damage: ${dmgInfo.roll} *(roll manually)*`);
+    const dmgInfo = getDamageForLevel(spell, slotLevel);
+    if (dmgInfo) {
+      try {
+        const result = rollDice(dmgInfo.roll);
+        const dmgType = spell.damage_types?.length ? ` ${spell.damage_types.join("/")}` : "";
+        const upcastNote = !dmgInfo.exact && slotLevel > minLevel
+          ? ` *(base damage — check \`!spell ${spell.name}\` for upcasting)*`
+          : "";
+        lines.push(`${dmgInfo.roll}${dmgType} → **${result.total}**${upcastNote}`);
+      } catch {
+        lines.push(`Damage: ${dmgInfo.roll} *(roll manually)*`);
+      }
+    } else if (spell.attack_roll) {
+      lines.push(`*Make a spell attack roll.*`);
+    } else {
+      lines.push(`*No damage roll — see spell description for effect.*`);
     }
-  } else if (spell.attack_roll) {
-    lines.push(`*Make a spell attack roll.*`);
-  } else {
-    lines.push(`*No damage roll — see spell description for effect.*`);
-  }
 
-  if (spell.saving_throw_ability) {
-    lines.push(`*Targets make a ${spell.saving_throw_ability.toUpperCase()} save.*`);
-  }
-  if (!isCantrip) {
-    const remaining = sheet.spellSlots?.[String(slotLevel)] ?? 0;
-    lines.push(`*(${remaining} level ${slotLevel} slot${remaining !== 1 ? "s" : ""} remaining)*`);
-  }
+    if (spell.saving_throw_ability) {
+      lines.push(`*Targets make a ${spell.saving_throw_ability.toUpperCase()} save.*`);
+    }
+    if (!isCantrip) {
+      const remaining = sheet.spellSlots?.[String(slotLevel)] ?? 0;
+      lines.push(`*(${remaining} level ${slotLevel} slot${remaining !== 1 ? "s" : ""} remaining)*`);
+    }
 
-  await reply(lines.join("\n"));
+    await reply(lines.join("\n"));
+  });
 }
 
 export async function handleRestLong(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "rest_long" }>): Promise<void> {
   const { who, reply, withTargetSheet } = ctx;
-  await withTargetSheet(parsed.targetUserId, async (sheet, ft, targetId) => {
+  await withTargetSheet(parsed.targetUserId, async (sheet, ft, save) => {
     const lines: string[] = [`🌙 **Long rest complete**${ft}!`];
 
     if (sheet.maxHp !== undefined) {
@@ -178,14 +208,14 @@ export async function handleRestLong(ctx: HandlerContext, parsed: Extract<Parsed
       lines.push("Temp HP cleared.");
     }
 
-    await saveSheet(targetId, sheet);
+    await save(sheet);
     await reply(lines.join("\n"));
   });
 }
 
 export async function handleRestShort(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "rest_short" }>): Promise<void> {
   const { who, reply, withTargetSheet } = ctx;
-  await withTargetSheet(parsed.targetUserId, async (sheet, ft, targetId) => {
+  await withTargetSheet(parsed.targetUserId, async (sheet, ft, save) => {
     if (!sheet.hitDice) {
       await reply("⚠️ Set your hit die first: `!char set hd 8`");
       return;
@@ -199,7 +229,7 @@ export async function handleRestShort(ctx: HandlerContext, parsed: Extract<Parse
     const oldHp = sheet.hp ?? 0;
     sheet.hp = sheet.maxHp !== undefined ? Math.min(sheet.maxHp, oldHp + heal) : oldHp + heal;
     const recovered = sheet.hp - oldHp;
-    await saveSheet(targetId, sheet);
+    await save(sheet);
 
     const rollStr = rolls.length === 1 ? `d${sheet.hitDice}(${rolls[0]})` : `[${rolls.join(", ")}]`;
     const conStr = conMod !== 0 ? ` + CON(${conMod >= 0 ? "+" : ""}${conMod})×${parsed.dice}` : "";

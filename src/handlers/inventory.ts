@@ -1,7 +1,9 @@
 // Handlers for !inv (player inventory) and !lib (DM-only item library).
+import { resolveUserGuid } from "./context";
 import type { HandlerContext } from "./context";
 import type { ParsedCommand } from "../commands";
-import { saveSheet, loadSheet } from "../sheet";
+import { loadSheet } from "../sheet";
+import { findNPCName, loadNPCSheet } from "../npclib";
 import { getItem, addItem, delItem, listItems, calcInventoryWeight, isMagic } from "../itemlib";
 import { renderInventoryRow } from "../render";
 import { isDM } from "../dm";
@@ -9,11 +11,23 @@ import type { UserGuid } from "@rootsdk/server-bot";
 
 export async function handleInvShow(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "inv_show" }>): Promise<void> {
   const { evt, who, reply, getNickname, mentionUser } = ctx;
-  const targetId = (parsed.targetUserId ?? evt.userId) as UserGuid;
-  const sheet = await loadSheet(targetId);
-  const label = targetId === evt.userId
-    ? `${who}'s`
-    : `${mentionUser(targetId, await getNickname(targetId).catch(() => "user"))}'s`;
+
+  let sheet: Awaited<ReturnType<typeof loadSheet>>;
+  let label: string;
+
+  if (parsed.targetUserId?.startsWith('#')) {
+    const name = parsed.targetUserId.slice(1).trim();
+    const canonical = await findNPCName(name);
+    if (!canonical) { await reply(`⚠️ NPC "${name}" not found.`); return; }
+    sheet = await loadNPCSheet(canonical);
+    label = `**${canonical}**'s`;
+  } else {
+    const targetId = parsed.targetUserId ? await resolveUserGuid(parsed.targetUserId) : evt.userId as UserGuid;
+    sheet = await loadSheet(targetId);
+    label = targetId === evt.userId
+      ? `${who}'s`
+      : `${mentionUser(targetId, await getNickname(targetId).catch(() => "user"))}'s`;
+  }
 
   const invEntries = Object.entries(sheet.inventory);
   if (invEntries.length === 0) {
@@ -34,7 +48,7 @@ export async function handleInvShow(ctx: HandlerContext, parsed: Extract<ParsedC
 
 export async function handleInvAdd(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "inv_add" }>): Promise<void> {
   const { who, reply, withTargetSheet } = ctx;
-  await withTargetSheet(parsed.targetUserId, async (sheet, ft, targetId) => {
+  await withTargetSheet(parsed.targetUserId, async (sheet, ft, save) => {
     const strScore = sheet.forms[sheet.activeForm].abilities.str;
     const capacity = strScore * 15;
     const { used } = await calcInventoryWeight(sheet.inventory);
@@ -55,7 +69,7 @@ export async function handleInvAdd(ctx: HandlerContext, parsed: Extract<ParsedCo
       sheet.inventory[key] = (sheet.inventory[key] ?? 0) + qty;
       summary.push(`**${item}**${qty !== 1 ? ` ×${qty}` : ""}`);
     }
-    await saveSheet(targetId, sheet);
+    await save(sheet);
     if (summary.length === 1) {
       await reply(`${who} added ${summary[0]} to inventory${ft}.`);
     } else {
@@ -66,7 +80,7 @@ export async function handleInvAdd(ctx: HandlerContext, parsed: Extract<ParsedCo
 
 export async function handleInvRemove(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "inv_remove" }>): Promise<void> {
   const { who, reply, withTargetSheet } = ctx;
-  await withTargetSheet(parsed.targetUserId, async (sheet, ft, targetId) => {
+  await withTargetSheet(parsed.targetUserId, async (sheet, ft, save) => {
     const key = Object.keys(sheet.inventory).find(k => k.toLowerCase() === parsed.item.toLowerCase());
     if (!key) {
       await reply(`⚠️ **${parsed.item}** not found in inventory.`);
@@ -77,7 +91,7 @@ export async function handleInvRemove(ctx: HandlerContext, parsed: Extract<Parse
     } else {
       sheet.inventory[key] -= parsed.qty;
     }
-    await saveSheet(targetId, sheet);
+    await save(sheet);
     const qtyStr = parsed.qty !== 1 ? ` ×${parsed.qty}` : "";
     await reply(`${who} removed **${parsed.item}**${qtyStr} from inventory${ft}.`);
   });
@@ -85,9 +99,9 @@ export async function handleInvRemove(ctx: HandlerContext, parsed: Extract<Parse
 
 export async function handleInvClear(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "inv_clear" }>): Promise<void> {
   const { who, reply, withTargetSheet } = ctx;
-  await withTargetSheet(parsed.targetUserId, async (sheet, ft, targetId) => {
+  await withTargetSheet(parsed.targetUserId, async (sheet, ft, save) => {
     sheet.inventory = {};
-    await saveSheet(targetId, sheet);
+    await save(sheet);
     await reply(`${who} cleared inventory${ft}.`);
   });
 }

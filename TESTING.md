@@ -628,7 +628,7 @@ From the player account:
 
 ## 13. NPC sheets
 
-**Prerequisites:** DM account. Use a multi-word NPC name to exercise the name-parsing logic.
+**Prerequisites:** DM account. NPC sheet operations use `#NPC-name` in place of `@user` in standard commands.
 
 ### Roster management
 
@@ -660,18 +660,18 @@ Non-DM attempt:
 ### Stat setup and sheet view
 
 ```
-!npc Brother Aldric set class Paladin
-!npc Brother Aldric set caster half
-!npc Brother Aldric set hd 10
-!npc Brother Aldric set maxhp 55
-!npc Brother Aldric set hp 55
-!npc Brother Aldric set pb 3
-!npc Brother Aldric set ability str ingame 18
-!npc Brother Aldric set abilities ingame str 18 dex 10 con 16 int 8 wis 12 cha 14
-!npc Brother Aldric prof skill Athletics
-!npc Brother Aldric prof save str
-!npc Brother Aldric prof save cha
-!npc Brother Aldric sheet
+!char set class Paladin #Brother Aldric
+!char set caster half #Brother Aldric
+!char set hd 10 #Brother Aldric
+!char set maxhp 55 #Brother Aldric
+!char set hp 55 #Brother Aldric
+!char set pb 3 #Brother Aldric
+!char set ability str ingame 18 #Brother Aldric
+!char set abilities ingame str 18 dex 10 con 16 int 8 wis 12 cha 14 #Brother Aldric
+!char prof skill Athletics #Brother Aldric
+!char prof save str #Brother Aldric
+!char prof save cha #Brother Aldric
+!sheet #Brother Aldric
 ```
 
 - [ ] Sheet displays name, class, PB, HP, ability scores
@@ -681,14 +681,14 @@ Non-DM attempt:
 ### HP and damage
 
 ```
-!npc Brother Aldric set temphp 8
-!npc Brother Aldric adjust hp -12
+!char set temphp 8 #Brother Aldric
+!char adjust hp -12 #Brother Aldric
 ```
 
 - [ ] Message says 8 absorbed by temp HP, regular HP reduced by 4
 
 ```
-!npc Brother Aldric adjust hp 10
+!char adjust hp 10 #Brother Aldric
 ```
 
 - [ ] HP increases (capped at max)
@@ -696,11 +696,11 @@ Non-DM attempt:
 ### Rests
 
 ```
-!npc Brother Aldric set maxslot 1 4
-!npc Brother Aldric set maxslot 2 2
-!npc Brother Aldric cast cure wounds
-!npc Brother Aldric rest long
-!npc Brother Aldric sheet
+!char set maxslot 1 4 #Brother Aldric
+!char set maxslot 2 2 #Brother Aldric
+!cast cure wounds #Brother Aldric
+!rest long #Brother Aldric
+!sheet #Brother Aldric
 ```
 
 - [ ] Slot decremented by cast
@@ -708,8 +708,8 @@ Non-DM attempt:
 - [ ] Sheet confirms
 
 ```
-!npc Brother Aldric adjust hp -20
-!npc Brother Aldric rest short 2
+!char adjust hp -20 #Brother Aldric
+!rest short 2 #Brother Aldric
 ```
 
 - [ ] Reports two hit die rolls + CON modifier, HP increased
@@ -717,16 +717,16 @@ Non-DM attempt:
 ### Inventory
 
 ```
-!npc Brother Aldric inv add Longsword
-!npc Brother Aldric inv add Rations 5; Torch
-!npc Brother Aldric inv
+!inv add Longsword #Brother Aldric
+!inv add Rations 5; Torch #Brother Aldric
+!inv #Brother Aldric
 ```
 
 - [ ] Inventory shows all three items with correct quantities
 
 ```
-!npc Brother Aldric inv remove Rations 2
-!npc Brother Aldric inv
+!inv remove Rations 2 #Brother Aldric
+!inv #Brother Aldric
 ```
 
 - [ ] Rations count is 3
@@ -734,7 +734,7 @@ Non-DM attempt:
 ### Experience and level-up
 
 ```
-!npc Brother Aldric exp 60
+!exp 60 #Brother Aldric
 ```
 
 - [ ] Level-up message fires (level 2), PB and HP changes noted
@@ -743,17 +743,17 @@ Non-DM attempt:
 !exprank
 ```
 
-- [ ] Brother Aldric does **not** appear in the leaderboard
+- [ ] Brother Aldric **appears** in the leaderboard (NPCs are included once they have exp)
 
 ### Spells
 
 ```
-!npc Brother Aldric spells add cure wounds
-!npc Brother Aldric spells add bless
-!npc Brother Aldric spells
-!npc Brother Aldric cast cure wounds
-!npc Brother Aldric spells remove bless
-!npc Brother Aldric spells
+!spells add cure wounds #Brother Aldric
+!spells add bless #Brother Aldric
+!spells #Brother Aldric
+!cast cure wounds #Brother Aldric
+!spells remove bless #Brother Aldric
+!spells #Brother Aldric
 ```
 
 - [ ] Known spells list reflects adds and remove
@@ -763,17 +763,17 @@ Non-DM attempt:
 Casting a spell not in known list (when list is non-empty):
 
 ```
-!npc Brother Aldric cast fireball
+!cast fireball #Brother Aldric
 ```
 
-- [ ] Blocked with helpful error referencing `!npc Brother Aldric spells add fireball`
+- [ ] Blocked with helpful error referencing `!spells add fireball #Brother Aldric`
 
 ### Delete
 
 ```
 !npc delete Brother Aldric
 !npc list
-!npc Brother Aldric sheet
+!sheet #Brother Aldric
 ```
 
 - [ ] List is empty (or no longer shows Brother Aldric)

@@ -8,6 +8,7 @@ import { fetchDDBSheet } from "../ddbimport";
 import { expToLevel } from "../skills";
 import { rootServer } from "@rootsdk/server-bot";
 import type { UserGuid } from "@rootsdk/server-bot";
+import { resolveUserGuid } from "./context";
 
 export async function handleDMClaim(ctx: HandlerContext, _parsed: Extract<ParsedCommand, { kind: "dm_claim" }>): Promise<void> {
   const { evt, who, reply } = ctx;
@@ -115,7 +116,7 @@ export async function handleDDBImport(ctx: HandlerContext, parsed: Extract<Parse
 
   // Check auth manually — we need to send "fetching…" before we do the heavy network call,
   // which means we can't use withTargetSheet (it loads the sheet before we get control back).
-  const targetId = (parsed.targetUserId ?? evt.userId) as UserGuid;
+  const targetId = parsed.targetUserId ? await resolveUserGuid(parsed.targetUserId) : evt.userId as UserGuid;
   const isSelf = targetId === evt.userId;
   if (!isSelf && !(await isDM(evt.userId))) {
     await reply("⚠️ Only a DM can modify another player's sheet.");

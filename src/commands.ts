@@ -3,12 +3,24 @@ import type { Ability, Form, ProfLevel, CasterType } from "./skills";
 import { ABILITY_ALIASES } from "./skills";
 import { parseDDBId } from "./ddbimport";
 import { splitParts } from "./dice";
-import { extractTrailingMention, parseMentionId } from "./mentions";
+import { extractTrailingMention, extractTrailingTarget } from "./mentions";
 
 type AbilityPair = { ability: Ability; score: number };
 
 // Regex fragment: captures the user ID from a Root @mention
 const M = String.raw`\[@[^\]]*\]\(root://user/([^)]+)\)`;
+// Regex fragment: captures an NPC name from a #name target
+const NPC = String.raw`#([^\n]+)`;
+
+// Extracts the target (mention ID or "#npc-name") from a regex match.
+// mentionIdx is the capture group index for the @mention; NPC name is at mentionIdx+1.
+function t(m: RegExpMatchArray, mentionIdx: number): string | undefined {
+  const mention = m[mentionIdx];
+  const npc = m[mentionIdx + 1];
+  if (mention) return mention;
+  if (npc) return '#' + npc.trim();
+  return undefined;
+}
 
 export type ParsedCommand =
   | { kind: "roll"; parts: string[] }
@@ -51,47 +63,17 @@ export type ParsedCommand =
   | { kind: "spell_lookup"; name: string }
   | { kind: "rest_long"; targetUserId?: string }
   | { kind: "rest_short"; dice: number; targetUserId?: string }
-  | { kind: "cast"; level: number }
-  | { kind: "spell_cast"; spell: string; level?: number }
+  | { kind: "cast"; level: number; targetUserId?: string }
+  | { kind: "spell_cast"; spell: string; level?: number; targetUserId?: string }
   | { kind: "attack"; weapon: string; advantage?: "adv" | "dis" }
-  | { kind: "spells_show" }
-  | { kind: "spells_add"; spell: string }
-  | { kind: "spells_remove"; spell: string }
-  | { kind: "spells_clear" }
+  | { kind: "spells_show"; targetUserId?: string }
+  | { kind: "spells_add"; spell: string; targetUserId?: string }
+  | { kind: "spells_remove"; spell: string; targetUserId?: string }
+  | { kind: "spells_clear"; targetUserId?: string }
   | { kind: "ddb_import"; characterId: string; targetUserId?: string }
   | { kind: "npc_create"; name: string }
   | { kind: "npc_list" }
-  | { kind: "npc_delete"; name: string }
-  | { kind: "npc_sheet"; name: string }
-  | { kind: "npc_reset"; name: string }
-  | { kind: "npc_use"; name: string; form: Form }
-  | { kind: "npc_set_pb"; name: string; pb: number }
-  | { kind: "npc_set_ability"; name: string; ability: Ability; form: Form; score: number }
-  | { kind: "npc_set_abilities"; name: string; form: Form; pairs: AbilityPair[] }
-  | { kind: "npc_prof_skill"; name: string; skill: string; level: ProfLevel }
-  | { kind: "npc_prof_save"; name: string; ability: Ability; proficient: boolean }
-  | { kind: "npc_set_class"; name: string; value: string }
-  | { kind: "npc_set_caster"; name: string; casterType: CasterType }
-  | { kind: "npc_set_slot"; name: string; level: number; value: number }
-  | { kind: "npc_set_maxslot"; name: string; level: number; value: number }
-  | { kind: "npc_set_hp"; name: string; value: number }
-  | { kind: "npc_set_maxhp"; name: string; value: number }
-  | { kind: "npc_set_temphp"; name: string; value: number }
-  | { kind: "npc_adjust_hp"; name: string; delta: number }
-  | { kind: "npc_set_hd"; name: string; value: number }
-  | { kind: "npc_rest_long"; name: string }
-  | { kind: "npc_rest_short"; name: string; dice: number }
-  | { kind: "npc_exp"; name: string; amount: number }
-  | { kind: "npc_inv_show"; name: string }
-  | { kind: "npc_inv_add"; name: string; items: Array<{ item: string; qty: number }> }
-  | { kind: "npc_inv_remove"; name: string; item: string; qty: number }
-  | { kind: "npc_inv_clear"; name: string }
-  | { kind: "npc_cast"; name: string; level: number }
-  | { kind: "npc_spell_cast"; name: string; spell: string; level?: number }
-  | { kind: "npc_spells_show"; name: string }
-  | { kind: "npc_spells_add"; name: string; spell: string }
-  | { kind: "npc_spells_remove"; name: string; spell: string }
-  | { kind: "npc_spells_clear"; name: string };
+  | { kind: "npc_delete"; name: string };
 
 function extractQty(s: string): [string, number] {
   const m = s.match(/^(.*\S)\s+(\d+)\s*$/);
@@ -138,33 +120,33 @@ export function parseTopLevel(text: string): ParsedCommand | null {
     }
   }
 
-  // !char use irl|ingame [@user]?
+  // !char use irl|ingame [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+use\s+(irl|ingame)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "char_use", form: m[1].toLowerCase() as Form, targetUserId: m[2] };
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+use\s+(irl|ingame)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "char_use", form: m[1].toLowerCase() as Form, targetUserId: t(m, 2) };
   }
 
-  // !char set pb N [@user]?
+  // !char set pb N [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+pb\s+(-?\d+)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "char_set_pb", pb: Number(m[1]), targetUserId: m[2] };
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+pb\s+(-?\d+)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "char_set_pb", pb: Number(m[1]), targetUserId: t(m, 2) };
   }
 
-  // !char set ability <ab> <form> <score> [@user]?
+  // !char set ability <ab> <form> <score> [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+ability\s+([a-zA-Z]+)\s+(irl|ingame)\s+(-?\d+)(?:\s+${M})?\s*$`, "i"));
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+ability\s+([a-zA-Z]+)\s+(irl|ingame)\s+(-?\d+)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
     if (m) {
       const ability = parseAbility(m[1]);
       if (!ability) return null;
-      return { kind: "char_set_ability", ability, form: parseForm(m[2]), score: Number(m[3]), targetUserId: m[4] };
+      return { kind: "char_set_ability", ability, form: parseForm(m[2]), score: Number(m[3]), targetUserId: t(m, 4) };
     }
   }
 
-  // !char set abilities <form> (<ab> <score>)+ [@user]?
+  // !char set abilities <form> (<ab> <score>)+ [@user|#NPC]?
   {
     const m = trimmed.match(/^!char\s+set\s+abilities\s+(.+)$/i);
     if (m) {
-      const [payload, targetUserId] = extractTrailingMention(m[1]);
+      const [payload, targetUserId] = extractTrailingTarget(m[1]);
       const tokens = payload.split(/\s+/);
       const form = parseForm(tokens[0]);
       const rest = tokens.slice(1);
@@ -181,11 +163,11 @@ export function parseTopLevel(text: string): ParsedCommand | null {
     }
   }
 
-  // !char prof skill <skill> [level] [@user]?
+  // !char prof skill <skill> [level] [@user|#NPC]?
   {
     const m = trimmed.match(/^!char\s+prof\s+skill\s+(.+)$/i);
     if (m) {
-      const [payload, targetUserId] = extractTrailingMention(m[1]);
+      const [payload, targetUserId] = extractTrailingTarget(m[1]);
       const mm = payload.match(/^(.+?)(?:\s+(exp|expertise|none|0|1|2))?\s*$/i);
       if (!mm) return null;
       const skill = mm[1].trim();
@@ -198,16 +180,16 @@ export function parseTopLevel(text: string): ParsedCommand | null {
     }
   }
 
-  // !sheet reset [@user]?  — must come before bare !sheet
+  // !sheet reset [@user|#NPC]?  — must come before bare !sheet
   {
-    const m = trimmed.match(new RegExp(String.raw`^!sheet\s+reset(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "sheet_reset", targetUserId: m[1] };
+    const m = trimmed.match(new RegExp(String.raw`^!sheet\s+reset(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "sheet_reset", targetUserId: t(m, 1) };
   }
 
-  // !sheet [@user]?
+  // !sheet [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!sheet(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "sheet", targetUserId: m[1] };
+    const m = trimmed.match(new RegExp(String.raw`^!sheet(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "sheet", targetUserId: t(m, 1) };
   }
 
   // !dm claim
@@ -228,11 +210,11 @@ export function parseTopLevel(text: string): ParsedCommand | null {
   // !dm list
   if (/^!dm\s+list\s*$/i.test(trimmed)) return { kind: "dm_list" };
 
-  // !inv add <item> [qty] [; <item> [qty] ...]* [@user]?  — must come before bare !inv
+  // !inv add <item> [qty] [; <item> [qty] ...]* [@user|#NPC]?  — must come before bare !inv
   {
     const m = trimmed.match(/^!inv\s+add\s+(.+)$/i);
     if (m) {
-      const [raw, targetUserId] = extractTrailingMention(m[1]);
+      const [raw, targetUserId] = extractTrailingTarget(m[1]);
       const items = raw.split(";")
         .map(s => s.trim())
         .filter(Boolean)
@@ -243,62 +225,62 @@ export function parseTopLevel(text: string): ParsedCommand | null {
     }
   }
 
-  // !inv remove <item> [qty] [@user]?
+  // !inv remove <item> [qty] [@user|#NPC]?
   {
     const m = trimmed.match(/^!inv\s+remove\s+(.+)$/i);
     if (m) {
-      const [raw, targetUserId] = extractTrailingMention(m[1]);
+      const [raw, targetUserId] = extractTrailingTarget(m[1]);
       const [item, qty] = extractQty(raw);
       if (!item) return null;
       return { kind: "inv_remove", item, qty, targetUserId };
     }
   }
 
-  // !inv clear [@user]?
+  // !inv clear [@user|#NPC]?
   {
-    const m = trimmed.match(/^!inv\s+clear\s*(.*)$/i);
-    if (m) return { kind: "inv_clear", targetUserId: parseMentionId(m[1]) };
+    const m = trimmed.match(new RegExp(String.raw`^!inv\s+clear(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "inv_clear", targetUserId: t(m, 1) };
   }
 
-  // !inv [@user]?
+  // !inv [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!inv(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "inv_show", targetUserId: m[1] };
+    const m = trimmed.match(new RegExp(String.raw`^!inv(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "inv_show", targetUserId: t(m, 1) };
   }
 
-  // !char set class <name> [@user]?
+  // !char set class <name> [@user|#NPC]?
   {
     const m = trimmed.match(/^!char\s+set\s+class\s+(.+)$/i);
     if (m) {
-      const [value, targetUserId] = extractTrailingMention(m[1]);
+      const [value, targetUserId] = extractTrailingTarget(m[1]);
       if (!value) return null;
       return { kind: "char_set_class", value: value.trim(), targetUserId };
     }
   }
 
-  // !char set caster full|half|none [@user]?
+  // !char set caster full|half|none [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+caster\s+(full|half|none)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "char_set_caster", casterType: m[1].toLowerCase() as CasterType, targetUserId: m[2] };
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+caster\s+(full|half|none)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "char_set_caster", casterType: m[1].toLowerCase() as CasterType, targetUserId: t(m, 2) };
   }
 
-  // !char set slot <1-9> <value> [@user]?
+  // !char set slot <1-9> <value> [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+slot\s+([1-9])\s+(\d+)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "char_set_slot", level: Number(m[1]), value: Number(m[2]), targetUserId: m[3] };
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+slot\s+([1-9])\s+(\d+)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "char_set_slot", level: Number(m[1]), value: Number(m[2]), targetUserId: t(m, 3) };
   }
 
-  // !char set maxslot <1-9> <value> [@user]?
+  // !char set maxslot <1-9> <value> [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+maxslot\s+([1-9])\s+(\d+)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "char_set_maxslot", level: Number(m[1]), value: Number(m[2]), targetUserId: m[3] };
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+maxslot\s+([1-9])\s+(\d+)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "char_set_maxslot", level: Number(m[1]), value: Number(m[2]), targetUserId: t(m, 3) };
   }
 
-  // !char prof save <ability> [none] [@user]?
+  // !char prof save <ability> [none] [@user|#NPC]?
   {
     const m = trimmed.match(/^!char\s+prof\s+save\s+(.+)$/i);
     if (m) {
-      const [payload, targetUserId] = extractTrailingMention(m[1]);
+      const [payload, targetUserId] = extractTrailingTarget(m[1]);
       const tokens = payload.trim().split(/\s+/);
       const removing = tokens[tokens.length - 1]?.toLowerCase() === "none";
       const abilityStr = (removing ? tokens.slice(0, -1) : tokens).join(" ");
@@ -308,40 +290,40 @@ export function parseTopLevel(text: string): ParsedCommand | null {
     }
   }
 
-  // !char set temphp N [@user]?
+  // !char set temphp N [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+temphp\s+(\d+)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "char_set_temphp", value: Number(m[1]), targetUserId: m[2] };
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+temphp\s+(\d+)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "char_set_temphp", value: Number(m[1]), targetUserId: t(m, 2) };
   }
 
-  // !char set hp N [@user]?
+  // !char set hp N [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+hp\s+(\d+)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "char_set_hp", value: Number(m[1]), targetUserId: m[2] };
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+hp\s+(\d+)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "char_set_hp", value: Number(m[1]), targetUserId: t(m, 2) };
   }
 
-  // !char set maxhp N [@user]?
+  // !char set maxhp N [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+maxhp\s+(\d+)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "char_set_maxhp", value: Number(m[1]), targetUserId: m[2] };
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+maxhp\s+(\d+)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "char_set_maxhp", value: Number(m[1]), targetUserId: t(m, 2) };
   }
 
-  // !char set hd N [@user]?
+  // !char set hd N [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+hd\s+(\d+)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "char_set_hd", value: Number(m[1]), targetUserId: m[2] };
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+set\s+hd\s+(\d+)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "char_set_hd", value: Number(m[1]), targetUserId: t(m, 2) };
   }
 
-  // !char adjust hp N [@user]?  (N may be negative)
+  // !char adjust hp N [@user|#NPC]?  (N may be negative)
   {
-    const m = trimmed.match(new RegExp(String.raw`^!char\s+adjust\s+hp\s+(-?\d+)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "char_adjust_hp", delta: Number(m[1]), targetUserId: m[2] };
+    const m = trimmed.match(new RegExp(String.raw`^!char\s+adjust\s+hp\s+(-?\d+)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "char_adjust_hp", delta: Number(m[1]), targetUserId: t(m, 2) };
   }
 
-  // !exp N [@user]?  (N may be negative)
+  // !exp N [@user|#NPC]?  (N may be negative)
   {
-    const m = trimmed.match(new RegExp(String.raw`^!exp\s+(-?\d+)(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "exp_add", amount: Number(m[1]), targetUserId: m[2] };
+    const m = trimmed.match(new RegExp(String.raw`^!exp\s+(-?\d+)(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "exp_add", amount: Number(m[1]), targetUserId: t(m, 2) };
   }
 
   // !spell <name>
@@ -350,21 +332,22 @@ export function parseTopLevel(text: string): ParsedCommand | null {
     if (m) return { kind: "spell_lookup", name: m[1].trim() };
   }
 
-  // !rest long [@user]?
+  // !rest long [@user|#NPC]?
   {
-    const m = trimmed.match(new RegExp(String.raw`^!rest\s+long(?:\s+${M})?\s*$`, "i"));
-    if (m) return { kind: "rest_long", targetUserId: m[1] };
+    const m = trimmed.match(new RegExp(String.raw`^!rest\s+long(?:\s+${M}|\s+${NPC})?\s*$`, "i"));
+    if (m) return { kind: "rest_long", targetUserId: t(m, 1) };
   }
 
-  // !rest short [N] [@user]?
+  // !rest short [N] [@user|#NPC]?
   {
     const m = trimmed.match(/^!rest\s+short(?:\s+(.+))?\s*$/i);
     if (m) {
       const rest = m[1]?.trim() ?? "";
-      // If the entire rest is just a mention (anchored check — no dice before it)
       const pureMention = rest.match(/^\[@[^\]]*\]\(root:\/\/user\/([^)]+)\)\s*$/);
       if (pureMention) return { kind: "rest_short", dice: 1, targetUserId: pureMention[1] };
-      const [payload, targetUserId] = extractTrailingMention(rest);
+      const pureNPC = rest.match(/^#(.+?)\s*$/);
+      if (pureNPC) return { kind: "rest_short", dice: 1, targetUserId: '#' + pureNPC[1].trim() };
+      const [payload, targetUserId] = extractTrailingTarget(rest);
       const n = parseInt(payload.trim(), 10);
       return { kind: "rest_short", dice: Number.isFinite(n) && n >= 1 ? n : 1, targetUserId };
     }
@@ -373,14 +356,27 @@ export function parseTopLevel(text: string): ParsedCommand | null {
   // !spells add/remove/clear/show — must come before bare !spells
   {
     const m = trimmed.match(/^!spells\s+add\s+(.+)$/i);
-    if (m) return { kind: "spells_add", spell: m[1].trim().toLowerCase() };
+    if (m) {
+      const [spell, targetUserId] = extractTrailingTarget(m[1].trim());
+      return { kind: "spells_add", spell: spell.toLowerCase(), targetUserId };
+    }
   }
   {
     const m = trimmed.match(/^!spells\s+remove\s+(.+)$/i);
-    if (m) return { kind: "spells_remove", spell: m[1].trim().toLowerCase() };
+    if (m) {
+      const [spell, targetUserId] = extractTrailingTarget(m[1].trim());
+      return { kind: "spells_remove", spell: spell.toLowerCase(), targetUserId };
+    }
   }
-  if (/^!spells\s+clear\s*$/i.test(trimmed)) return { kind: "spells_clear" };
-  if (/^!spells?\s*$/i.test(trimmed)) return { kind: "spells_show" };
+  {
+    const m = trimmed.match(/^!spells\s+clear(?:\s+#([^\n]+))?\s*$/i);
+    if (m) return { kind: "spells_clear", targetUserId: m[1] ? '#' + m[1].trim() : undefined };
+  }
+  // !spells [#NPC]?  — must come after add/remove/clear
+  {
+    const m = trimmed.match(/^!spells?(?:\s+#([^\n]+))?\s*$/i);
+    if (m) return { kind: "spells_show", targetUserId: m[1] ? '#' + m[1].trim() : undefined };
+  }
 
   // !attack <weapon> [adv|dis]  /  !atk <weapon> [adv|dis]
   {
@@ -397,22 +393,22 @@ export function parseTopLevel(text: string): ParsedCommand | null {
     }
   }
 
-  // !cast blind <1-9>  — deduct a slot with no spell lookup
+  // !cast blind <1-9> [#NPC]?  — deduct a slot with no spell lookup; must come before general cast
   {
-    const m = trimmed.match(/^!cast\s+blind\s+([1-9])\s*$/i);
-    if (m) return { kind: "cast", level: Number(m[1]) };
+    const m = trimmed.match(/^!cast\s+blind\s+([1-9])(?:\s+#([^\n]+))?\s*$/i);
+    if (m) return { kind: "cast", level: Number(m[1]), targetUserId: m[2] ? '#' + m[2].trim() : undefined };
   }
 
-  // !cast <spell name> [level]  — must come after blind check
+  // !cast <spell name> [level] [@mention|#NPC]?  — must come after blind check
   {
     const m = trimmed.match(/^!cast\s+(.+)$/i);
     if (m) {
-      const raw = m[1].trim();
-      const levelMatch = raw.match(/^(.*\S)\s+([1-9])\s*$/);
-      const spell = (levelMatch ? levelMatch[1] : raw).trim();
+      const [afterTarget, targetUserId] = extractTrailingTarget(m[1].trim());
+      const levelMatch = afterTarget.match(/^(.*\S)\s+([1-9])\s*$/);
+      const spell = (levelMatch ? levelMatch[1] : afterTarget).trim();
       const level = levelMatch ? parseInt(levelMatch[2], 10) : undefined;
       if (!spell) return null;
-      return { kind: "spell_cast", spell, level };
+      return { kind: "spell_cast", spell, level, targetUserId };
     }
   }
 
@@ -472,11 +468,11 @@ export function parseTopLevel(text: string): ParsedCommand | null {
     if (m) return { kind: "lib_list", filter: m[1] };
   }
 
-  // !import <ddb-url-or-id> [@user]?
+  // !import <ddb-url-or-id> [@user|#NPC]?
   {
     const m = trimmed.match(/^!import\s+(.+)$/i);
     if (m) {
-      const [raw, targetUserId] = extractTrailingMention(m[1]);
+      const [raw, targetUserId] = extractTrailingTarget(m[1]);
       const characterId = parseDDBId(raw.trim());
       if (!characterId) return null;
       return { kind: "ddb_import", characterId, targetUserId };
@@ -489,8 +485,7 @@ export function parseTopLevel(text: string): ParsedCommand | null {
     if (m) return { kind: "help", topic: m[1]?.trim() || undefined };
   }
 
-  // NPC COMMANDS
-  // Structural (keyword first): !npc create/list/delete
+  // NPC structural commands (keyword first): create, list, delete
   if (/^!npc\s+list\s*$/i.test(trimmed)) return { kind: "npc_list" };
   {
     const m = trimmed.match(/^!npc\s+create\s+(.+)$/i);
@@ -499,183 +494,6 @@ export function parseTopLevel(text: string): ParsedCommand | null {
   {
     const m = trimmed.match(/^!npc\s+delete\s+(.+)$/i);
     if (m) return { kind: "npc_delete", name: m[1].trim() };
-  }
-
-  // Sheet operations (name first): more specific subcommands before general ones.
-  // Name captured with (.+?) non-greedy — stops at first occurrence of the subcommand keyword.
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+abilities\s+(.+)$/i);
-    if (m) {
-      const tokens = m[2].trim().split(/\s+/);
-      const form = parseForm(tokens[0]);
-      const rest = tokens.slice(1);
-      if (rest.length >= 2 && rest.length % 2 === 0) {
-        const pairs: AbilityPair[] = [];
-        for (let i = 0; i < rest.length; i += 2) {
-          const ability = parseAbility(rest[i]);
-          const score = Number(rest[i + 1]);
-          if (ability && Number.isFinite(score)) pairs.push({ ability, score });
-        }
-        if (pairs.length > 0) return { kind: "npc_set_abilities", name: m[1].trim(), form, pairs };
-      }
-    }
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+ability\s+([a-zA-Z]+)\s+(irl|ingame)\s+(-?\d+)\s*$/i);
-    if (m) {
-      const ability = parseAbility(m[2]);
-      if (!ability) return null;
-      return { kind: "npc_set_ability", name: m[1].trim(), ability, form: parseForm(m[3]), score: Number(m[4]) };
-    }
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+maxslot\s+([1-9])\s+(\d+)\s*$/i);
-    if (m) return { kind: "npc_set_maxslot", name: m[1].trim(), level: Number(m[2]), value: Number(m[3]) };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+maxhp\s+(\d+)\s*$/i);
-    if (m) return { kind: "npc_set_maxhp", name: m[1].trim(), value: Number(m[2]) };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+temphp\s+(\d+)\s*$/i);
-    if (m) return { kind: "npc_set_temphp", name: m[1].trim(), value: Number(m[2]) };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+caster\s+(full|half|none)\s*$/i);
-    if (m) return { kind: "npc_set_caster", name: m[1].trim(), casterType: m[2].toLowerCase() as CasterType };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+class\s+(.+)$/i);
-    if (m) return { kind: "npc_set_class", name: m[1].trim(), value: m[2].trim() };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+slot\s+([1-9])\s+(\d+)\s*$/i);
-    if (m) return { kind: "npc_set_slot", name: m[1].trim(), level: Number(m[2]), value: Number(m[3]) };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+hd\s+(\d+)\s*$/i);
-    if (m) return { kind: "npc_set_hd", name: m[1].trim(), value: Number(m[2]) };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+pb\s+(-?\d+)\s*$/i);
-    if (m) return { kind: "npc_set_pb", name: m[1].trim(), pb: Number(m[2]) };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+set\s+hp\s+(\d+)\s*$/i);
-    if (m) return { kind: "npc_set_hp", name: m[1].trim(), value: Number(m[2]) };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+adjust\s+hp\s+(-?\d+)\s*$/i);
-    if (m) return { kind: "npc_adjust_hp", name: m[1].trim(), delta: Number(m[2]) };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+prof\s+skill\s+(.+)$/i);
-    if (m) {
-      const mm = m[2].trim().match(/^(.+?)(?:\s+(exp|expertise|none|0|1|2))?\s*$/i);
-      if (!mm) return null;
-      const skill = mm[1].trim();
-      const mode = (mm[2] ?? "1").toLowerCase();
-      const level: ProfLevel = mode === "none" || mode === "0" ? 0 : mode === "exp" || mode === "expertise" || mode === "2" ? 2 : 1;
-      return { kind: "npc_prof_skill", name: m[1].trim(), skill, level };
-    }
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+prof\s+save\s+(.+)$/i);
-    if (m) {
-      const tokens = m[2].trim().split(/\s+/);
-      const removing = tokens[tokens.length - 1]?.toLowerCase() === "none";
-      const abilityStr = (removing ? tokens.slice(0, -1) : tokens).join(" ");
-      const ability = parseAbility(abilityStr.trim());
-      if (!ability) return null;
-      return { kind: "npc_prof_save", name: m[1].trim(), ability, proficient: !removing };
-    }
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+use\s+(irl|ingame)\s*$/i);
-    if (m) return { kind: "npc_use", name: m[1].trim(), form: m[2].toLowerCase() as Form };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+rest\s+short(?:\s+(\d+))?\s*$/i);
-    if (m) {
-      const n = m[2] ? parseInt(m[2], 10) : 1;
-      return { kind: "npc_rest_short", name: m[1].trim(), dice: Number.isFinite(n) && n >= 1 ? n : 1 };
-    }
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+rest\s+long\s*$/i);
-    if (m) return { kind: "npc_rest_long", name: m[1].trim() };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+exp\s+(-?\d+)\s*$/i);
-    if (m) return { kind: "npc_exp", name: m[1].trim(), amount: Number(m[2]) };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+inv\s+add\s+(.+)$/i);
-    if (m) {
-      const items = m[2].split(";")
-        .map(s => s.trim()).filter(Boolean)
-        .map(part => { const [item, qty] = extractQty(part); return { item, qty }; })
-        .filter(({ item }) => item.length > 0);
-      if (items.length === 0) return null;
-      return { kind: "npc_inv_add", name: m[1].trim(), items };
-    }
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+inv\s+remove\s+(.+)$/i);
-    if (m) {
-      const [item, qty] = extractQty(m[2].trim());
-      if (!item) return null;
-      return { kind: "npc_inv_remove", name: m[1].trim(), item, qty };
-    }
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+inv\s+clear\s*$/i);
-    if (m) return { kind: "npc_inv_clear", name: m[1].trim() };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+inv\s*$/i);
-    if (m) return { kind: "npc_inv_show", name: m[1].trim() };
-  }
-  {
-    // !npc <name> cast blind <1-9> — must come before general cast
-    const m = trimmed.match(/^!npc\s+(.+?)\s+cast\s+blind\s+([1-9])\s*$/i);
-    if (m) return { kind: "npc_cast", name: m[1].trim(), level: Number(m[2]) };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+cast\s+(.+)$/i);
-    if (m) {
-      const raw = m[2].trim();
-      const levelMatch = raw.match(/^(.*\S)\s+([1-9])\s*$/);
-      const spell = (levelMatch ? levelMatch[1] : raw).trim();
-      const level = levelMatch ? parseInt(levelMatch[2], 10) : undefined;
-      if (!spell) return null;
-      return { kind: "npc_spell_cast", name: m[1].trim(), spell, level };
-    }
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+spells\s+add\s+(.+)$/i);
-    if (m) return { kind: "npc_spells_add", name: m[1].trim(), spell: m[2].trim().toLowerCase() };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+spells\s+remove\s+(.+)$/i);
-    if (m) return { kind: "npc_spells_remove", name: m[1].trim(), spell: m[2].trim().toLowerCase() };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+spells\s+clear\s*$/i);
-    if (m) return { kind: "npc_spells_clear", name: m[1].trim() };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+spells\s*$/i);
-    if (m) return { kind: "npc_spells_show", name: m[1].trim() };
-  }
-  {
-    const m = trimmed.match(/^!npc\s+(.+?)\s+reset\s*$/i);
-    if (m) return { kind: "npc_reset", name: m[1].trim() };
-  }
-  {
-    // Bare sheet view — must come last among name-first patterns
-    const m = trimmed.match(/^!npc\s+(.+?)\s+sheet\s*$/i);
-    if (m) return { kind: "npc_sheet", name: m[1].trim() };
   }
 
   return null;

@@ -24,17 +24,7 @@ import {
   handleDMClaim, handleDMAdd, handleDMRemove, handleDMList,
   handleCalShow, handleCalAdd, handleCalDel, handleDDBImport,
 } from "./handlers/admin";
-import {
-  handleNPCCreate, handleNPCList, handleNPCDelete, handleNPCSheet, handleNPCReset,
-  handleNPCUse, handleNPCSetPB, handleNPCSetAbility, handleNPCSetAbilities,
-  handleNPCProfSkill, handleNPCProfSave, handleNPCSetClass, handleNPCSetCaster,
-  handleNPCSetSlot, handleNPCSetMaxSlot, handleNPCSetHP, handleNPCSetMaxHP,
-  handleNPCSetTempHP, handleNPCAdjustHP, handleNPCSetHD,
-  handleNPCRestLong, handleNPCRestShort, handleNPCExp,
-  handleNPCInvShow, handleNPCInvAdd, handleNPCInvRemove, handleNPCInvClear,
-  handleNPCCast, handleNPCSpellCast,
-  handleNPCSpellsShow, handleNPCSpellsAdd, handleNPCSpellsRemove, handleNPCSpellsClear,
-} from "./handlers/npc";
+import { handleNPCCreate, handleNPCList, handleNPCDelete } from "./handlers/npc";
 
 async function handleMessage(evt: ChannelMessageCreatedEvent): Promise<void> {
   const parsed = parseTopLevel(evt.messageContent);
@@ -96,41 +86,11 @@ async function handleMessage(evt: ChannelMessageCreatedEvent): Promise<void> {
     case "cal_del":    return handleCalDel(ctx, parsed);
     case "ddb_import": return handleDDBImport(ctx, parsed);
 
-    case "help": return ctx.reply(renderHelp(parsed.topic));
+    case "npc_create": return handleNPCCreate(ctx, parsed);
+    case "npc_list":   return handleNPCList(ctx, parsed);
+    case "npc_delete": return handleNPCDelete(ctx, parsed);
 
-    case "npc_create":       return handleNPCCreate(ctx, parsed);
-    case "npc_list":         return handleNPCList(ctx, parsed);
-    case "npc_delete":       return handleNPCDelete(ctx, parsed);
-    case "npc_sheet":        return handleNPCSheet(ctx, parsed);
-    case "npc_reset":        return handleNPCReset(ctx, parsed);
-    case "npc_use":          return handleNPCUse(ctx, parsed);
-    case "npc_set_pb":       return handleNPCSetPB(ctx, parsed);
-    case "npc_set_ability":  return handleNPCSetAbility(ctx, parsed);
-    case "npc_set_abilities": return handleNPCSetAbilities(ctx, parsed);
-    case "npc_prof_skill":   return handleNPCProfSkill(ctx, parsed);
-    case "npc_prof_save":    return handleNPCProfSave(ctx, parsed);
-    case "npc_set_class":    return handleNPCSetClass(ctx, parsed);
-    case "npc_set_caster":   return handleNPCSetCaster(ctx, parsed);
-    case "npc_set_slot":     return handleNPCSetSlot(ctx, parsed);
-    case "npc_set_maxslot":  return handleNPCSetMaxSlot(ctx, parsed);
-    case "npc_set_hp":       return handleNPCSetHP(ctx, parsed);
-    case "npc_set_maxhp":    return handleNPCSetMaxHP(ctx, parsed);
-    case "npc_set_temphp":   return handleNPCSetTempHP(ctx, parsed);
-    case "npc_adjust_hp":    return handleNPCAdjustHP(ctx, parsed);
-    case "npc_set_hd":       return handleNPCSetHD(ctx, parsed);
-    case "npc_rest_long":    return handleNPCRestLong(ctx, parsed);
-    case "npc_rest_short":   return handleNPCRestShort(ctx, parsed);
-    case "npc_exp":          return handleNPCExp(ctx, parsed);
-    case "npc_inv_show":     return handleNPCInvShow(ctx, parsed);
-    case "npc_inv_add":      return handleNPCInvAdd(ctx, parsed);
-    case "npc_inv_remove":   return handleNPCInvRemove(ctx, parsed);
-    case "npc_inv_clear":    return handleNPCInvClear(ctx, parsed);
-    case "npc_cast":         return handleNPCCast(ctx, parsed);
-    case "npc_spell_cast":   return handleNPCSpellCast(ctx, parsed);
-    case "npc_spells_show":  return handleNPCSpellsShow(ctx, parsed);
-    case "npc_spells_add":   return handleNPCSpellsAdd(ctx, parsed);
-    case "npc_spells_remove": return handleNPCSpellsRemove(ctx, parsed);
-    case "npc_spells_clear": return handleNPCSpellsClear(ctx, parsed);
+    case "help": return ctx.reply(renderHelp(parsed.topic));
 
     default: parsed satisfies never;
   }

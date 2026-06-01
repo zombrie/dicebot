@@ -10,3 +10,14 @@ export function extractTrailingMention(text: string): [string, string | undefine
   if (!m) return [text.trim(), undefined];
   return [m[1].trim(), m[2]];
 }
+
+// Splits a trailing @mention OR #NPC-name off the end of a string.
+// NPC targets are returned as "#name" (# sigil preserved).
+// Returns [textWithoutTarget, targetUserId | undefined]
+export function extractTrailingTarget(text: string): [string, string | undefined] {
+  const m = text.match(/^(.*)\s+\[@[^\]]*\]\(root:\/\/user\/([^)]+)\)\s*$/);
+  if (m) return [m[1].trim(), m[2]];
+  const n = text.match(/^(.*\S)\s+#(.+?)\s*$/);
+  if (n) return [n[1].trim(), `#${n[2].trim()}`];
+  return [text.trim(), undefined];
+}

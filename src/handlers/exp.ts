@@ -1,23 +1,31 @@
 // Handlers for !exp (award/deduct XP with auto level-up) and !exprank (party leaderboard).
 import type { HandlerContext } from "./context";
 import type { ParsedCommand } from "../commands";
-import { saveSheet, loadSheet } from "../sheet";
+import { loadSheet } from "../sheet";
+import { npcName } from "./context";
 import { expToLevel, pbForLevel, spellSlotsForLevel } from "../skills";
 import { getMembers } from "../party";
+import { listNPCs, loadNPCSheet } from "../npclib";
 import type { UserGuid } from "@rootsdk/server-bot";
 
 export async function handleExpAdd(ctx: HandlerContext, parsed: Extract<ParsedCommand, { kind: "exp_add" }>): Promise<void> {
   const { evt, who, reply, getNickname, mentionUser, withTargetSheet } = ctx;
-  await withTargetSheet(parsed.targetUserId, async (sheet, _ft, targetId) => {
+  // Compute the display name before entering withTargetSheet (callback no longer receives targetId).
+  let targetMention: string;
+  if (!parsed.targetUserId) {
+    targetMention = who;
+  } else if (parsed.targetUserId.startsWith('#')) {
+    targetMention = npcName(parsed.targetUserId)!;
+  } else {
+    const { resolveUserGuid } = await import("./context");
+    const resolvedId = await resolveUserGuid(parsed.targetUserId);
+    targetMention = mentionUser(resolvedId, await getNickname(resolvedId).catch(() => "user"));
+  }
+  await withTargetSheet(parsed.targetUserId, async (sheet, _ft, save) => {
     const oldExp = sheet.exp ?? 0;
     const oldLevel = expToLevel(oldExp);
     sheet.exp = Math.max(0, oldExp + parsed.amount);
     const newLevel = expToLevel(sheet.exp);
-
-    const isSelf = targetId === evt.userId;
-    const targetMention = isSelf
-      ? who
-      : mentionUser(targetId, await getNickname(targetId).catch(() => "user"));
 
     let msg: string;
     if (parsed.amount > 0) {
@@ -70,25 +78,35 @@ export async function handleExpAdd(ctx: HandlerContext, parsed: Extract<ParsedCo
       }
     }
 
-    await saveSheet(targetId, sheet);
+    await save(sheet);
     await reply(msg);
   });
 }
 
 export async function handleExpRank(ctx: HandlerContext, _parsed: Extract<ParsedCommand, { kind: "exp_rank" }>): Promise<void> {
   const { reply, getNickname } = ctx;
-  const memberIds = await getMembers();
-  if (memberIds.length === 0) {
-    await reply("No party members yet — sheets register automatically when first saved.");
-    return;
-  }
-  const entries = await Promise.all(
+  const [memberIds, npcNames] = await Promise.all([getMembers(), listNPCs()]);
+
+  const playerEntries = await Promise.all(
     memberIds.map(async id => {
       const sheet = await loadSheet(id as UserGuid);
-      const name = await getNickname(id as UserGuid).catch(() => id);
+      const name = sheet.name || await getNickname(id as UserGuid).catch(() => id);
       return { name, exp: sheet.exp ?? 0, hasExp: sheet.exp !== undefined };
     })
   );
+
+  const npcEntries = await Promise.all(
+    npcNames.map(async name => {
+      const sheet = await loadNPCSheet(name);
+      return { name, exp: sheet.exp ?? 0, hasExp: sheet.exp !== undefined };
+    })
+  );
+
+  const entries = [...playerEntries, ...npcEntries].filter(e => e.hasExp);
+  if (entries.length === 0) {
+    await reply("No party members yet — sheets register automatically when first saved.");
+    return;
+  }
   entries.sort((a, b) => b.exp - a.exp);
   const lines = ["📊 **Experience Rankings**", ""];
   entries.forEach((e, i) => {
